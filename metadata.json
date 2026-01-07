@@ -1,0 +1,7 @@
+{
+  "name": "MPRO - Smart Daily Investments",
+  "description": "A premium Naira-based investment platform offering daily 26% returns on asset-styled product packages.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
