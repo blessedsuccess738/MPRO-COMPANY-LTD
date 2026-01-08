@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Product, Transaction, TransactionType, TransactionStatus, GlobalSettings, UserRole, Coupon } from '../types';
 import { store } from '../store';
-import { CURRENCY, APP_NAME } from '../constants';
+import { CURRENCY, APP_NAME, INITIAL_SETTINGS } from '../constants';
 import Chat from './Chat';
 
 interface Props {
@@ -12,11 +12,12 @@ interface Props {
 
 const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'withdrawals' | 'deposits' | 'coupons' | 'support' | 'settings' | 'products'>('users');
-  const [users, setUsers] = useState<User[]>(store.getUsers());
-  const [transactions, setTransactions] = useState<Transaction[]>(store.getTransactions());
-  const [settings, setSettings] = useState<GlobalSettings>(store.getSettings());
-  const [coupons, setCoupons] = useState<Coupon[]>(store.getCoupons());
-  const [products, setProducts] = useState<Product[]>(store.getProducts());
+  // Fix: Initialize with empty arrays/defaults instead of synchronous store calls
+  const [users, setUsers] = useState<User[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [settings, setSettings] = useState<GlobalSettings>(INITIAL_SETTINGS);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedChatUserId, setSelectedChatUserId] = useState<string | null>(null);
 
   // Modals / Input States
@@ -43,13 +44,23 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
   }, [users, transactions]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setUsers(store.getUsers());
-      setTransactions(store.getTransactions());
-      setSettings(store.getSettings());
-      setCoupons(store.getCoupons());
-      setProducts(store.getProducts());
-    }, 5000);
+    // Fix: Fetch all data asynchronously in the interval
+    const fetchData = async () => {
+      const [u, t, s, c, p] = await Promise.all([
+        store.getUsers(),
+        store.getTransactions(),
+        store.getSettings(),
+        store.getCoupons(),
+        store.getProducts()
+      ]);
+      setUsers(u);
+      setTransactions(t);
+      setSettings(s);
+      setCoupons(c);
+      setProducts(p);
+    };
+    fetchData();
+    const timer = setInterval(fetchData, 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -64,7 +75,8 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
     if (!tx) return;
     store.updateTransactionStatus(id, approve ? TransactionStatus.PAID : TransactionStatus.REJECTED);
     if (!approve) {
-      const u = store.getUsers().find(u => u.id === tx.userId);
+      // Fix: Use the local 'users' state array instead of calling the async store method synchronously
+      const u = users.find(u => u.id === tx.userId);
       if (u) store.updateUser(u.id, { balance: u.balance + tx.amount });
     }
   };
@@ -73,7 +85,8 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
     if (approve) {
-      const u = store.getUsers().find(u => u.id === tx.userId);
+      // Fix: Use the local 'users' state array
+      const u = users.find(u => u.id === tx.userId);
       if (u) store.updateUser(u.id, { balance: u.balance + tx.amount });
       store.updateTransactionStatus(id, TransactionStatus.PAID);
     } else {

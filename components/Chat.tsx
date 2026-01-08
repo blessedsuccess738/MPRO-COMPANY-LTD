@@ -18,12 +18,13 @@ const Chat: React.FC<Props> = ({ user, isAdmin, targetUserId }) => {
   const activeChatUserId = isAdmin ? targetUserId : user.id;
 
   useEffect(() => {
-    const fetchMessages = () => {
-      const allMsgs = store.getMessages();
-      const filtered = allMsgs.filter(m => m.userId === activeChatUserId);
-      setMessages(filtered);
+    // Fix: fetchMessages should be asynchronous and pass activeChatUserId
+    const fetchMessages = async () => {
+      if (!activeChatUserId) return;
+      const allMsgs = await store.getMessages(activeChatUserId);
+      setMessages(allMsgs);
       if (!isAdmin) {
-        store.markMessagesAsRead(user.id);
+        await store.markMessagesAsRead(user.id);
       }
     };
 

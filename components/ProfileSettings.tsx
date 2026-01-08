@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { store } from '../store';
+import { store, supabase } from '../store';
 
 interface Props {
   user: User;
@@ -13,21 +13,21 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
   const [newPass, setNewPass] = useState('');
   const [message, setMessage] = useState('');
   
-  // Fake setting states for demonstration
   const [profitAlerts, setProfitAlerts] = useState(true);
   const [biometricSync, setBiometricSync] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user.password && oldPass !== user.password) {
-      setMessage('Current password incorrect');
-      return;
+    const { error } = await supabase.auth.updateUser({ password: newPass });
+    
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage('Password updated successfully');
+      setOldPass('');
+      setNewPass('');
     }
-    store.updateUser(user.id, { password: newPass });
-    setMessage('Password updated successfully');
-    setOldPass('');
-    setNewPass('');
     setTimeout(() => setMessage(''), 3000);
   };
 
@@ -43,7 +43,6 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
         </button>
       </div>
       
-      {/* Profile Info Card */}
       <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
          <div className="absolute top-0 right-0 p-8 opacity-10 text-6xl">👤</div>
          <div className="flex items-center space-x-6 relative z-10">
@@ -58,7 +57,6 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Security Section */}
         <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 shadow-2xl space-y-6 backdrop-blur-md">
            <div className="flex justify-between items-center">
              <h4 className="font-black text-white uppercase text-xs tracking-[0.2em] flex items-center gap-2">
@@ -68,17 +66,6 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
            </div>
            
            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Current Password</label>
-                 <input 
-                    type="password"
-                    required
-                    className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-white font-bold text-sm"
-                    value={oldPass}
-                    placeholder="••••••••"
-                    onChange={(e) => setOldPass(e.target.value)}
-                 />
-              </div>
               <div className="space-y-1">
                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">New Password</label>
                  <input 
@@ -94,7 +81,6 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
            </form>
         </div>
 
-        {/* Financial Identity Section */}
         <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 shadow-2xl space-y-6 backdrop-blur-md">
            <h4 className="font-black text-white uppercase text-xs tracking-[0.2em] flex items-center gap-2">
              <span className="text-green-400">💳</span> Banking Identity
@@ -107,93 +93,27 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
                  </div>
                  <span className="text-xl">🏦</span>
               </div>
-              <div className="p-5 bg-white/5 border border-white/5 rounded-2xl">
-                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Identity Verification</p>
-                 <div className="flex items-center gap-2 mt-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <p className="text-green-400 font-black text-[10px] uppercase tracking-widest">Level 1 Protocol Secured</p>
-                 </div>
-              </div>
               <button className="w-full py-4 bg-indigo-600/10 text-indigo-400 font-black rounded-2xl uppercase tracking-widest text-[10px] border border-indigo-500/20 hover:bg-indigo-600/20 transition-all">Link Secondary Node</button>
            </div>
         </div>
       </div>
 
-      {/* Preferences Section */}
-      <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 shadow-2xl space-y-8 backdrop-blur-md">
-         <h4 className="font-black text-white uppercase text-xs tracking-[0.2em] flex items-center gap-2">
-           <span className="text-amber-400">⚙️</span> Protocol Preferences
-         </h4>
-         
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-               <div>
-                  <p className="text-white font-black text-[11px] uppercase tracking-tight">Daily Profit Alerts</p>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Real-time Node Notifications</p>
-               </div>
-               <button 
-                  onClick={() => setProfitAlerts(!profitAlerts)}
-                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${profitAlerts ? 'bg-indigo-600' : 'bg-slate-700'}`}
-               >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${profitAlerts ? 'left-7' : 'left-1'}`}></div>
-               </button>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-               <div>
-                  <p className="text-white font-black text-[11px] uppercase tracking-tight">Biometric Sync</p>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">FaceID / TouchID Authentication</p>
-               </div>
-               <button 
-                  onClick={() => setBiometricSync(!biometricSync)}
-                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${biometricSync ? 'bg-indigo-600' : 'bg-slate-700'}`}
-               >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${biometricSync ? 'left-7' : 'left-1'}`}></div>
-               </button>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-               <div>
-                  <p className="text-white font-black text-[11px] uppercase tracking-tight">Stealth Mode</p>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Hide balance from global ticker</p>
-               </div>
-               <button 
-                  onClick={() => setStealthMode(!stealthMode)}
-                  className={`w-12 h-6 rounded-full relative transition-all duration-300 ${stealthMode ? 'bg-indigo-600' : 'bg-slate-700'}`}
-               >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${stealthMode ? 'left-7' : 'left-1'}`}></div>
-               </button>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-               <div>
-                  <p className="text-white font-black text-[11px] uppercase tracking-tight">Language Protocol</p>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Current: English (Global)</p>
-               </div>
-               <span className="text-xs font-black text-indigo-400">CHANGE</span>
-            </div>
-         </div>
-      </div>
-      
-      {/* Account Control */}
-      <div className="bg-red-500/5 border border-red-500/10 rounded-[2.5rem] p-8 text-center space-y-6 backdrop-blur-md">
+      {/* Simplified Session Control */}
+      <div className="bg-indigo-600/5 border border-indigo-500/10 rounded-[2.5rem] p-8 text-center space-y-6 backdrop-blur-md">
          <div className="space-y-2">
-            <p className="text-red-500 text-xs font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2">
-              <span className="text-xl">⚠️</span> Danger Zone
+            <p className="text-indigo-400 text-xs font-black uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+              <span className="text-xl">🚪</span> Session Control
             </p>
             <p className="text-slate-500 text-[10px] leading-relaxed font-bold uppercase tracking-tight max-w-sm mx-auto">
-              Account termination will purge all active asset deeds and current balance. This action is irreversible.
+              Logout to terminate your current access session. Your active asset nodes will continue generating returns in the background.
             </p>
          </div>
-         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
+         <div className="flex justify-center pt-2">
             <button 
               onClick={onLogout}
               className="px-10 py-4 bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-red-500 transition-all shadow-xl shadow-red-600/10 active:scale-95"
             >
               Sign Out Securely
-            </button>
-            <button className="px-10 py-4 bg-transparent border border-red-500/20 text-red-500/40 font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-red-500/5 transition-all">
-              Delete Protocol Data
             </button>
          </div>
       </div>

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { store } from '../store';
+import { store, supabase } from '../store';
 import { ADMIN_EMAIL, APP_NAME } from '../constants';
 
 interface Props {
@@ -16,93 +16,91 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [error, setError] = useState('');
-  const settings = store.getSettings();
+  const [loading, setLoading] = useState(false);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    if (mode === 'login') {
-      const users = store.getUsers();
-      const user = users.find(u => u.email === email && u.password === password);
+    try {
+      if (mode === 'login') {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      if (user) {
-        if (user.isFrozen) {
-          setError('Account frozen. Contact support.');
+        if (authError) throw authError;
+
+        const profile = await store.fetchCurrentUser(email);
+        if (profile) {
+          if (profile.isFrozen) {
+            setError('Account frozen. Contact support.');
+            await supabase.auth.signOut();
+            return;
+          }
+          store.setCurrentUser(profile);
+          onAuthSuccess(profile);
+        } else {
+          setError('Profile not found.');
+        }
+      } else {
+        if (password !== confirmPassword) {
+          setError('Passwords mismatch');
+          setLoading(false);
           return;
         }
-        store.setCurrentUser(user);
-        onAuthSuccess(user);
-      } else {
-        if (email === ADMIN_EMAIL && password === 'admin123') {
-          const admin: User = {
-            id: 'admin-' + Date.now(),
-            email: ADMIN_EMAIL,
-            password: 'admin123',
-            role: UserRole.ADMIN,
+
+        // Referral validation if provided
+        if (referralCode) {
+          const { data: refUser } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('referral_code', referralCode.toUpperCase())
+            .maybeSingle();
+          if (!refUser) {
+            setError('Invalid referral code');
+            setLoading(false);
+            return;
+          }
+        }
+
+        const { data, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (authError) throw authError;
+
+        if (data.user) {
+          const newUser: User = {
+            id: data.user.id,
+            email,
+            role: email === ADMIN_EMAIL ? UserRole.ADMIN : UserRole.USER,
             balance: 0,
             isFrozen: false,
-            referralCode: 'ADMIN_PRO',
+            usedCoupons: [],
+            referralCode: store.generateReferralCode(),
+            referredBy: referralCode.toUpperCase() || undefined,
             createdAt: new Date().toISOString()
           };
-          store.addUser(admin);
-          store.setCurrentUser(admin);
-          onAuthSuccess(admin);
-        } else {
-          setError('Invalid credentials');
+          await store.addUser(newUser);
+          store.setCurrentUser(newUser);
+          onAuthSuccess(newUser);
         }
       }
-    } else {
-      if (password !== confirmPassword) {
-        setError('Passwords mismatch');
-        return;
-      }
-      const users = store.getUsers();
-      if (users.some(u => u.email === email)) {
-        setError('Email exists');
-        return;
-      }
-
-      // Referral validation
-      if (referralCode && !users.some(u => u.referralCode === referralCode.toUpperCase())) {
-        setError('Invalid referral code');
-        return;
-      }
-
-      const newUser: User = {
-        id: 'u-' + Date.now(),
-        email,
-        password,
-        role: email === ADMIN_EMAIL ? UserRole.ADMIN : UserRole.USER,
-        balance: 0,
-        isFrozen: false,
-        usedCoupons: [],
-        referralCode: store.generateReferralCode(),
-        referredBy: referralCode.toUpperCase() || undefined,
-        createdAt: new Date().toISOString()
-      };
-      store.addUser(newUser);
-      store.setCurrentUser(newUser);
-      onAuthSuccess(newUser);
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {settings.authBackgroundUrl ? (
-        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-          {settings.isAuthVideo ? (
-            <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-50" src={settings.authBackgroundUrl} />
-          ) : (
-            <div className="absolute inset-0 w-full h-full bg-cover bg-center opacity-50" style={{ backgroundImage: `url(${settings.authBackgroundUrl})` }} />
-          )}
-          <div className="absolute inset-0 bg-[#070b14]/70 backdrop-blur-[2px]" />
-        </div>
-      ) : (
-        <div className="absolute inset-0 pointer-events-none">
-          <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] animate-pulse ${mode === 'login' ? 'bg-indigo-600/20' : 'bg-blue-600/20'}`}></div>
-        </div>
-      )}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] animate-pulse ${mode === 'login' ? 'bg-indigo-600/20' : 'bg-blue-600/20'}`}></div>
+      </div>
 
       <div className="max-w-md w-full relative z-10 space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center space-y-4">
@@ -135,7 +133,9 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
                 </div>
               </>
             )}
-            <button type="submit" className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs">{mode === 'login' ? 'Login' : 'Sign up'}</button>
+            <button disabled={loading} type="submit" className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs flex justify-center items-center">
+              {loading ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : (mode === 'login' ? 'Login' : 'Sign up')}
+            </button>
           </form>
           <div className="mt-8 flex flex-col items-center pt-6 border-t border-white/5">
             <button type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }} className="text-indigo-400 font-black uppercase tracking-widest text-[11px]">{mode === 'login' ? 'Create new account' : 'Sign in'}</button>

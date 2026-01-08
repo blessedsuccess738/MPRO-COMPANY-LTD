@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { APP_NAME, CURRENCY } from '../constants';
+import { APP_NAME, CURRENCY, INITIAL_SETTINGS } from '../constants';
 import { store } from '../store';
+import { GlobalSettings } from '../types';
 
 interface Props {
   onLogin: () => void;
@@ -10,9 +11,17 @@ interface Props {
 
 const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
   const [tickerOffset, setTickerOffset] = useState(0);
-  const settings = store.getSettings();
+  // Fix: Initialize settings with a default value and fetch from store asynchronously
+  const [settings, setSettings] = useState<GlobalSettings>(INITIAL_SETTINGS);
 
   useEffect(() => {
+    // Fix: Asynchronous fetching of global settings
+    const fetchSettings = async () => {
+      const s = await store.getSettings();
+      setSettings(s);
+    };
+    fetchSettings();
+
     const interval = setInterval(() => {
       setTickerOffset((prev) => (prev + 1) % 100);
     }, 50);

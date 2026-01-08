@@ -1,116 +1,119 @@
 
+import { createClient } from '@supabase/supabase-js';
 import { User, Product, Investment, Transaction, ChatMessage, GlobalSettings, UserRole, TransactionType, TransactionStatus, Coupon } from './types';
 import { INITIAL_PRODUCTS, INITIAL_SETTINGS } from './constants';
 
+const supabaseUrl = (process.env as any).SUPABASE_URL || '';
+const supabaseAnonKey = (process.env as any).SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 class MProStore {
-  private static STORAGE_KEY = 'mpro_data_v2';
-
-  private data: {
-    users: User[];
-    products: Product[];
-    investments: Investment[];
-    transactions: Transaction[];
-    messages: ChatMessage[];
-    settings: GlobalSettings;
-    currentUser: User | null;
-    coupons: Coupon[];
-  };
-
-  constructor() {
-    const saved = localStorage.getItem(MProStore.STORAGE_KEY);
-    if (saved) {
-      this.data = JSON.parse(saved);
-      this.data.settings = { ...INITIAL_SETTINGS, ...this.data.settings };
-      if (!this.data.coupons) this.data.coupons = [];
-    } else {
-      this.data = {
-        users: [],
-        products: INITIAL_PRODUCTS,
-        investments: [],
-        transactions: [],
-        messages: [],
-        settings: INITIAL_SETTINGS,
-        currentUser: null,
-        coupons: []
-      };
-      this.save();
-    }
-  }
-
-  private save() {
-    localStorage.setItem(MProStore.STORAGE_KEY, JSON.stringify(this.data));
-  }
+  private currentUser: User | null = null;
 
   // Auth
   setCurrentUser(user: User | null) {
-    this.data.currentUser = user;
-    this.save();
+    this.currentUser = user;
   }
 
   getCurrentUser() {
-    return this.data.currentUser;
+    return this.currentUser;
   }
 
-  getUsers() { return this.data.users; }
-  
+  async fetchCurrentUser(email: string): Promise<User | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error || !data) return null;
+    return data as User;
+  }
+
+  async getUsers(): Promise<User[]> {
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    return (data as User[]) || [];
+  }
+
   generateReferralCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
 
-  addUser(user: User) {
-    // If user was referred, credit the referrer
+  async getReferralCount(referralCode: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('referred_by', referralCode);
+    return count || 0;
+  }
+
+  async addUser(user: User) {
+    const { error } = await supabase.from('profiles').insert([user]);
+    
     if (user.referredBy) {
-      const referrer = this.data.users.find(u => u.referralCode === user.referredBy);
+      const { data: referrer } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('referral_code', user.referredBy)
+        .single();
+
       if (referrer) {
-        const bonus = this.data.settings.referralBonus;
-        this.updateUser(referrer.id, { balance: referrer.balance + bonus });
-        this.addTransaction({
+        const settings = await this.getSettings();
+        const bonus = settings.referralBonus;
+        await this.updateUser(referrer.id, { balance: referrer.balance + bonus });
+        await this.addTransaction({
           id: 'ref-' + Date.now(),
           userId: referrer.id,
           amount: bonus,
           type: TransactionType.REFERRAL_BONUS,
           status: TransactionStatus.PAID,
-          description: `Referral Bonus: ${user.email}`,
+          description: `Network Bounty: ${user.email}`,
           createdAt: new Date().toISOString()
         });
       }
     }
-    this.data.users.push(user);
-    this.save();
   }
 
-  updateUser(id: string, updates: Partial<User>) {
-    this.data.users = this.data.users.map(u => u.id === id ? { ...u, ...updates } : u);
-    if (this.data.currentUser?.id === id) {
-      this.data.currentUser = { ...this.data.currentUser, ...updates };
+  async updateUser(id: string, updates: Partial<User>) {
+    const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+    if (this.currentUser?.id === id) {
+      this.currentUser = { ...this.currentUser, ...updates };
     }
-    this.save();
   }
 
   // Coupons
-  getCoupons() { return this.data.coupons; }
-  addCoupon(coupon: Coupon) {
-    this.data.coupons.push(coupon);
-    this.save();
-  }
-  deleteCoupon(id: string) {
-    this.data.coupons = this.data.coupons.filter(c => c.id !== id);
-    this.save();
+  async getCoupons(): Promise<Coupon[]> {
+    const { data } = await supabase.from('coupons').select('*');
+    return (data as Coupon[]) || [];
   }
 
-  redeemCoupon(userId: string, code: string): { success: boolean, amount: number, error?: string } {
-    const coupon = this.data.coupons.find(c => c.code.toUpperCase() === code.toUpperCase());
+  async addCoupon(coupon: Coupon) {
+    await supabase.from('coupons').insert([coupon]);
+  }
+
+  async deleteCoupon(id: string) {
+    await supabase.from('coupons').delete().eq('id', id);
+  }
+
+  async redeemCoupon(userId: string, code: string): Promise<{ success: boolean, amount: number, error?: string }> {
+    const { data: coupon } = await supabase
+      .from('coupons')
+      .select('*')
+      .ilike('code', code)
+      .single();
+
     if (!coupon) return { success: false, amount: 0, error: 'Invalid coupon code.' };
 
-    const user = this.data.users.find(u => u.id === userId);
+    const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (!user) return { success: false, amount: 0, error: 'User not found.' };
 
-    if (user.usedCoupons?.includes(coupon.id)) {
+    if (user.used_coupons?.includes(coupon.id)) {
       return { success: false, amount: 0, error: 'You have already used this coupon.' };
     }
 
-    const updatedUsedCoupons = [...(user.usedCoupons || []), coupon.id];
-    this.updateUser(userId, { 
+    const updatedUsedCoupons = [...(user.used_coupons || []), coupon.id];
+    await this.updateUser(userId, { 
       balance: user.balance + coupon.amount,
       usedCoupons: updatedUsedCoupons
     });
@@ -119,53 +122,81 @@ class MProStore {
   }
 
   // Products
-  getProducts() { return this.data.products; }
-  updateProduct(id: string, updates: Partial<Product>) {
-    this.data.products = this.data.products.map(p => p.id === id ? { ...p, ...updates } : p);
-    this.save();
+  async getProducts(): Promise<Product[]> {
+    const { data } = await supabase.from('products').select('*');
+    if (!data || data.length === 0) return INITIAL_PRODUCTS;
+    return data as Product[];
   }
-  addProduct(p: Product) {
-    this.data.products.push(p);
-    this.save();
+
+  async updateProduct(id: string, updates: Partial<Product>) {
+    await supabase.from('products').update(updates).eq('id', id);
+  }
+
+  async addProduct(p: Product) {
+    await supabase.from('products').insert([p]);
   }
 
   // Investments
-  getInvestments() { return this.data.investments; }
-  getActiveInvestment(userId: string) {
-    return this.data.investments.find(i => i.userId === userId && i.status === 'active');
+  async getInvestments(): Promise<Investment[]> {
+    const { data } = await supabase.from('investments').select('*');
+    return (data as Investment[]) || [];
   }
-  addInvestment(inv: Investment) {
-    this.data.investments.push(inv);
-    this.save();
+
+  async getActiveInvestment(userId: string): Promise<Investment | null> {
+    const { data } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('userId', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    return (data as Investment) || null;
+  }
+
+  async addInvestment(inv: Investment) {
+    await supabase.from('investments').insert([inv]);
   }
 
   // Transactions
-  getTransactions() { return this.data.transactions; }
-  addTransaction(t: Transaction) {
-    this.data.transactions.unshift(t);
-    this.save();
+  async getTransactions(userId?: string): Promise<Transaction[]> {
+    let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
+    if (userId) query = query.eq('userId', userId);
+    const { data } = await query;
+    return (data as Transaction[]) || [];
   }
-  updateTransactionStatus(id: string, status: TransactionStatus) {
-    this.data.transactions = this.data.transactions.map(t => t.id === id ? { ...t, status } : t);
-    this.save();
+
+  async addTransaction(t: Transaction) {
+    await supabase.from('transactions').insert([t]);
+  }
+
+  async updateTransactionStatus(id: string, status: TransactionStatus) {
+    await supabase.from('transactions').update({ status }).eq('id', id);
   }
 
   // Messages
-  getMessages() { return this.data.messages; }
-  addMessage(msg: ChatMessage) {
-    this.data.messages.push(msg);
-    this.save();
+  async getMessages(userId: string): Promise<ChatMessage[]> {
+    const { data } = await supabase.from('chat_messages').select('*').eq('userId', userId).order('timestamp', { ascending: true });
+    return (data as ChatMessage[]) || [];
   }
-  markMessagesAsRead(userId: string) {
-    this.data.messages = this.data.messages.map(m => m.userId === userId ? { ...m, isRead: true } : m);
-    this.save();
+
+  async addMessage(msg: ChatMessage) {
+    await supabase.from('chat_messages').insert([msg]);
+  }
+
+  async markMessagesAsRead(userId: string) {
+    await supabase.from('chat_messages').update({ isRead: true }).eq('userId', userId);
   }
 
   // Settings
-  getSettings() { return this.data.settings; }
-  updateSettings(s: Partial<GlobalSettings>) {
-    this.data.settings = { ...this.data.settings, ...s };
-    this.save();
+  async getSettings(): Promise<GlobalSettings> {
+    const { data } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
+    if (!data) return INITIAL_SETTINGS;
+    return data.data as GlobalSettings;
+  }
+
+  async updateSettings(s: Partial<GlobalSettings>) {
+    const current = await this.getSettings();
+    const updated = { ...current, ...s };
+    const { error } = await supabase.from('settings').upsert({ id: 'global', data: updated });
   }
 }
 

@@ -1,16 +1,26 @@
 
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { store } from '../store';
 import { CURRENCY } from '../constants';
-import { TransactionType, TransactionStatus } from '../types';
+import { Transaction, TransactionType, TransactionStatus } from '../types';
 
 interface Props {
   userId: string;
 }
 
 const TransactionHistory: React.FC<Props> = ({ userId }) => {
-  const transactions = useMemo(() => {
-    return store.getTransactions().filter(t => t.userId === userId);
+  // Fix: Use state to store transactions and fetch them asynchronously
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    // Fix: Fetch transactions asynchronously and update state
+    const fetchTransactions = async () => {
+      const txs = await store.getTransactions(userId);
+      setTransactions(txs);
+    };
+    fetchTransactions();
+    const interval = setInterval(fetchTransactions, 10000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   const getStatusStyles = (status: TransactionStatus) => {
