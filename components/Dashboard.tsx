@@ -240,12 +240,12 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       </header>
 
       <main className="flex-1 pb-32 overflow-y-auto no-scrollbar relative z-10">
-        <div className="max-w-2xl mx-auto p-6 space-y-6">
+        <div className="max-w-2xl mx-auto p-6 space-y-5">
           {user.warningMessage && <div className="p-4 bg-amber-500/10 text-amber-500 rounded-2xl text-xs font-bold border border-amber-500/20 animate-pulse">{user.warningMessage}</div>}
           {success && <div className="p-4 bg-green-500/10 text-green-400 rounded-2xl text-xs font-bold border border-green-500/20">{success}</div>}
           {error && <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl text-xs font-bold border border-red-500/20">{error}</div>}
 
-          <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+          <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-7 text-white shadow-2xl relative overflow-hidden">
              <div className="relative z-10">
                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Portfolio Balance</p>
                <h2 className="text-5xl font-black tracking-tighter">{CURRENCY}{user.balance.toLocaleString()}</h2>
@@ -257,40 +257,50 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
           </div>
 
           {activeTab === 'home' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {activeInvestment ? (
                 <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-6">
                   <div className="flex justify-between items-start">
-                    <div><h3 className="text-xl font-black text-white uppercase">{activeInvestment.productName}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Active</p></div>
-                    <div className="text-right"><p className="text-lg font-black text-indigo-400">+{CURRENCY}{dailyEarnings.toLocaleString()}</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">ROI / Day</p></div>
+                    <div><h3 className="text-xl font-black text-white uppercase">{activeInvestment.productName}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Active Asset Deed</p></div>
+                    <div className="text-right"><p className="text-lg font-black text-indigo-400">+{CURRENCY}{dailyEarnings.toLocaleString()}</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Daily Yield</p></div>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase"><span>Progress</span><span>{Math.round(progress)}%</span></div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase"><span>Earning Progress</span><span>{Math.round(progress)}%</span></div>
                     <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${progress}%` }}></div></div>
                   </div>
                 </div>
               ) : (
-                <div onClick={() => setActiveTab('products')} className="bg-white/5 border-2 border-dashed border-white/10 p-12 rounded-3xl text-center cursor-pointer hover:bg-white/[0.07] transition-all group">
-                  <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">💎</div>
-                  <p className="text-white font-black uppercase text-sm tracking-widest">Deploy First Asset</p>
-                  <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-tighter">Start earning 26% daily returns.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-2">
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Protocol Stats</p>
+                      <h4 className="text-white font-black text-sm uppercase">26% Daily Returns</h4>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Deployed capital generates consistent logistics-backed yields over a 30-day fixed cycle.</p>
+                   </div>
+                   <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-2">
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Asset Marketplace</p>
+                      <h4 className="text-white font-black text-sm uppercase">Verified Logistics</h4>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Assets range from small delivery units to residential estate blocks. Choose your tier.</p>
+                   </div>
                 </div>
               )}
 
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl">
-                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest ml-1">Redeem Promo Coupon</h4>
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
+                 <div className="flex items-center gap-2">
+                    <span className="text-indigo-400">🎟️</span>
+                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">Protocol Bonus Node</h4>
+                 </div>
                  <div className="flex gap-3">
-                    <input type="text" placeholder="CODE" className="flex-1 p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold tracking-widest" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} />
-                    <button onClick={handleRedeemCoupon} className="px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-[10px] shadow-lg hover:bg-indigo-500 active:scale-95 transition-all">Redeem</button>
+                    <input type="text" placeholder="COUPON CODE" className="flex-1 p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold tracking-widest text-xs" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} />
+                    <button onClick={handleRedeemCoupon} className="px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-[10px] shadow-lg hover:bg-indigo-500 transition-all">Redeem</button>
                  </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                  <a href={settings.telegramAdminLink} target="_blank" rel="noreferrer" className="bg-[#0088cc]/10 border border-[#0088cc]/20 p-5 rounded-2xl flex flex-col items-center text-center space-y-1 hover:bg-[#0088cc]/20 transition-all">
-                    <span className="text-xl">👤</span><span className="text-[10px] font-black text-[#0088cc] uppercase">Support</span>
+                    <span className="text-xl">👤</span><span className="text-[10px] font-black text-[#0088cc] uppercase">Support Node</span>
                  </a>
                  <a href={settings.telegramChannelLink} target="_blank" rel="noreferrer" className="bg-[#0088cc]/10 border border-[#0088cc]/20 p-5 rounded-2xl flex flex-col items-center text-center space-y-1 hover:bg-[#0088cc]/20 transition-all">
-                    <span className="text-xl">📢</span><span className="text-[10px] font-black text-[#0088cc] uppercase">Channel</span>
+                    <span className="text-xl">📢</span><span className="text-[10px] font-black text-[#0088cc] uppercase">Official Feed</span>
                  </a>
               </div>
             </div>
@@ -303,7 +313,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                   <img src={p.imageUrl} className="w-full sm:w-40 h-40 object-cover opacity-60 group-hover:opacity-100 transition-all" alt={p.name} />
                   <div className="p-6 flex-1 flex flex-col justify-between">
                      <div className="flex justify-between items-start mb-6">
-                        <div><h4 className="text-xl font-black text-white uppercase tracking-tight">{p.name}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Asset Tier</p></div>
+                        <div><h4 className="text-xl font-black text-white uppercase tracking-tight">{p.name}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Asset Tier {p.id}</p></div>
                         <div className="text-right"><p className="text-2xl font-black text-indigo-500 tracking-tighter">{CURRENCY}{p.price.toLocaleString()}</p><p className="text-[9px] text-green-400 font-bold uppercase mt-1">+{CURRENCY}{(p.price * 0.26).toLocaleString()} / Day</p></div>
                      </div>
                      <button onClick={() => handleInvestment(p)} className="w-full py-3.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl shadow-lg hover:bg-indigo-500 active:scale-95 transition-all">Acquire Asset</button>
@@ -392,8 +402,8 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
               {depositStep === 'proof' && (
                  <div className="space-y-6">
                     <div className="text-center space-y-2">
-                       <p className="text-indigo-400 font-black uppercase text-xs">Upload Evidence</p>
-                       <p className="text-[10px] text-slate-500 uppercase font-black">Proof of {CURRENCY}{parseFloat(depositAmount).toLocaleString()}</p>
+                       <p className="text-indigo-400 font-black uppercase text-xs">Evidence Submission</p>
+                       <p className="text-[10px] text-slate-500 uppercase font-black">Proof for {CURRENCY}{parseFloat(depositAmount).toLocaleString()}</p>
                     </div>
                     
                     <div 
@@ -405,7 +415,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                        ) : (
                           <>
                              <span className="text-4xl mb-2 opacity-20">📸</span>
-                             <p className="text-[10px] font-black text-slate-600 uppercase">Tap to choose screenshot</p>
+                             <p className="text-[10px] font-black text-slate-600 uppercase">Attach Transfer Receipt</p>
                           </>
                        )}
                     </div>
@@ -423,7 +433,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       {/* Withdrawal Modal */}
       {withdrawModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300 overflow-y-auto no-scrollbar">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-4 shadow-3xl my-auto">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-sm rounded-3xl p-8 space-y-4 shadow-3xl my-auto">
               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Harvest Funds</h3>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Payout Quantity</label>
