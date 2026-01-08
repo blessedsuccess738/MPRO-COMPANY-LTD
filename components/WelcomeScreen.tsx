@@ -156,7 +156,7 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
                     { t: "Asset Backing", d: "Every Naira is tied to a physical unit with serial numbers and deeds." },
                     { t: "Sustainability", d: "Our lease rates are optimized for long-term platform health." },
                     { t: "Zero Hidden Costs", d: "Maintenance and management are handled by our backend." },
-                    { t: "Verified Payouts", d: "Paystack integration ensures 100% automated processing." }
+                    { t: "Verified Payouts", d: "Automated integration ensures 100% processing efficiency." }
                   ].map((item, i) => (
                     <div key={i} className="space-y-2">
                        <h4 className="text-white font-black uppercase text-xs tracking-widest">{item.t}</h4>
@@ -203,7 +203,7 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
                 { 
                   step: "02", 
                   title: "Automated Deployment", 
-                  desc: "Once you activate with Paystack, our smart-contracts allocate your capital to a physical asset unit. You receive a digital deed and your daily 26% ROI starts accruing every 24 hours.",
+                  desc: "Once you activate your purchase, our smart-contracts allocate your capital to a physical asset unit. You receive a digital deed and your daily 26% ROI starts accruing every 24 hours.",
                   icon: "🚀",
                   color: "blue"
                 },
@@ -232,76 +232,13 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
           </div>
         </section>
 
-        {/* --- PRICING GRID (COMPACT BUT BOLD) --- */}
-        <section className="py-32 px-6 bg-white/[0.02]">
-           <div className="max-w-7xl mx-auto space-y-16">
-              <div className="flex flex-col md:flex-row justify-between items-end gap-6">
-                <div className="space-y-2">
-                  <h2 className="text-5xl font-black text-white tracking-tighter uppercase">Deployment Tiers</h2>
-                  <p className="text-slate-500 font-medium">Every asset earns 26% of its price daily.</p>
-                </div>
-                <div className="px-6 py-2.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-500 text-xs font-black uppercase tracking-[0.2em]">
-                   System: Online & Active
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
-                {[
-                  { n: "Motorcycle", p: "3.5k", roi: "910" },
-                  { n: "Compact Car", p: "5k", roi: "1.3k" },
-                  { n: "Sedan", p: "10k", roi: "2.6k" },
-                  { n: "Van", p: "25k", roi: "6.5k" },
-                  { n: "Luxury SUV", p: "50k", roi: "13k" },
-                  { n: "Studio Apt", p: "75k", roi: "19.5k" },
-                  { n: "1 Bed Flat", p: "100k", roi: "26k" },
-                  { n: "Bungalow", p: "150k", roi: "39k" },
-                  { n: "Duplex", p: "250k", roi: "65k" },
-                  { n: "Mini Estate", p: "350k", roi: "91k" },
-                  { n: "Plot", p: "500k", roi: "130k" }
-                ].map((pkg, i) => (
-                  <div key={i} onClick={onSignUp} className="group cursor-pointer bg-white/5 border border-white/5 p-6 rounded-[2rem] hover:bg-indigo-600 hover:border-indigo-400 transition-all space-y-4">
-                    <p className="text-[10px] font-black text-indigo-400 group-hover:text-indigo-100 uppercase tracking-widest">Tier {i+1}</p>
-                    <div className="space-y-1">
-                      <p className="text-white font-bold text-sm truncate leading-tight uppercase tracking-tighter">{pkg.n}</p>
-                      <p className="text-2xl font-black text-white leading-none">₦{pkg.p}</p>
-                    </div>
-                    <div className="pt-4 border-t border-white/5 group-hover:border-white/20">
-                       <p className="text-[9px] text-slate-500 group-hover:text-white/60 uppercase font-black">Daily Profit</p>
-                       <p className="text-xs font-bold text-green-400 group-hover:text-white">₦{pkg.roi}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-           </div>
-        </section>
-
-        {/* --- FAQ SECTION --- */}
-        <section className="py-32 px-6">
-           <div className="max-w-4xl mx-auto space-y-16">
-              <h2 className="text-5xl font-black text-white text-center tracking-tighter uppercase underline decoration-indigo-600 underline-offset-8">Common Questions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {[
-                  { q: "How is 26% daily possible?", a: "We operate in high-turnover logistics where asset lease value yields high daily cashflow, which we distribute back to our users." },
-                  { q: "Is Paystack safe?", a: "Paystack is Africa's leading payment gateway. Your transaction data is encrypted and never stored on our servers." },
-                  { q: "Can I upgrade my asset?", a: "You must complete your current investment cycle before selecting a new asset tier." },
-                  { q: "What about manual withdrawals?", a: "We verify every withdrawal request within 24 hours to prevent fraud and ensure platform integrity." }
-                ].map((faq, i) => (
-                  <div key={i} className="space-y-3 bg-white/5 p-8 rounded-[2rem] border border-white/10">
-                    <p className="text-white font-black uppercase text-sm">{faq.q}</p>
-                    <p className="text-slate-400 text-sm leading-relaxed">{faq.a}</p>
-                  </div>
-                ))}
-              </div>
-           </div>
-        </section>
-
         {/* --- FINAL CONVERSION CTA --- */}
         <section className="py-40 px-6 relative overflow-hidden">
            <div className="absolute inset-0 bg-indigo-600/20 blur-[150px] rounded-full scale-150"></div>
            <div className="max-w-4xl mx-auto text-center space-y-12 relative z-10">
               <h2 className="text-6xl md:text-8xl font-black text-white tracking-tighter leading-none">THE FUTURE <br /> IS CALLING.</h2>
-              <p className="text-slate-300 text-xl md:text-2xl font-medium leading-relaxed max-w-2xl mx-auto">
-                Don't watch from the sidelines. Join thousands of Nigerians building real wealth through automated asset deployment.
+              <p className="text-slate-300 text-xl md:text-2xl font-medium leading-relaxed max-w-2xl mx-auto uppercase italic">
+                {APP_NAME} - Investing in the future of Africa.
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
                 <button onClick={onSignUp} className="px-16 py-6 bg-white text-indigo-900 font-black rounded-3xl hover:bg-indigo-50 transition-all shadow-[0_40px_80px_-20px_rgba(255,255,255,0.2)] active:scale-95 text-2xl uppercase tracking-tighter">
@@ -311,7 +248,6 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
                   Sign In
                 </button>
               </div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">100% Free Account Registration</p>
            </div>
         </section>
 
@@ -321,7 +257,7 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
               <div className="space-y-6 max-w-sm">
                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black italic text-white text-xl">M</div>
-                    <span className="text-white font-black text-2xl tracking-tighter">{APP_NAME} PRO GLOBAL</span>
+                    <span className="text-white font-black text-2xl tracking-tighter italic uppercase underline underline-offset-4 decoration-indigo-500">{APP_NAME}</span>
                  </div>
                  <p className="text-slate-500 text-sm leading-relaxed">
                    Empowering the next generation of African investors through verified, asset-backed digital wealth protocols.
@@ -348,17 +284,14 @@ const WelcomeScreen: React.FC<Props> = ({ onLogin, onSignUp }) => {
                  <div className="space-y-6 col-span-2 sm:col-span-1">
                     <p className="text-white font-black text-xs uppercase tracking-widest">Legal</p>
                     <p className="text-slate-600 text-[10px] leading-relaxed uppercase font-bold tracking-tight">
-                      MPRO is a registered service. Past performance is not indicative of future results. All investments are final once deployed.
+                      {APP_NAME} is a registered service. Past performance is not indicative of future results. All investments are final once deployed.
                     </p>
                  </div>
               </div>
            </div>
            
            <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest">© {new Date().getFullYear()} {APP_NAME} PRO TECHNOLOGY LTD.</p>
-              <div className="flex gap-6 grayscale opacity-20 hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
-                 <span className="text-white text-xs font-black tracking-widest">PCI-DSS COMPLIANT</span>
-              </div>
+              <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest">© {new Date().getFullYear()} {APP_NAME} GLOBAL.</p>
            </div>
         </footer>
       </div>

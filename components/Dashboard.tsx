@@ -17,6 +17,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'products' | 'history' | 'profile' | 'chat'>('home');
   const [activeInvestment, setActiveInvestment] = useState<Investment | null>(store.getActiveInvestment(user.id) || null);
   const [products] = useState<Product[]>(store.getProducts());
+  const [settings, setSettings] = useState(store.getSettings());
   
   // Modals & States
   const [paystackModal, setPaystackModal] = useState<Product | null>(null);
@@ -40,6 +41,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       const updated = store.getUsers().find(u => u.id === user.id);
       if (updated) setUser(updated);
       setActiveInvestment(store.getActiveInvestment(user.id) || null);
+      setSettings(store.getSettings());
     }, 5000);
     return () => clearInterval(timer);
   }, [user.id]);
@@ -124,7 +126,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
         amount: amount,
         type: TransactionType.DEPOSIT,
         status: TransactionStatus.PAID,
-        description: 'Instant Deposit (Paystack)',
+        description: 'Instant Deposit (Automated)',
         createdAt: new Date().toISOString()
       });
       setSuccess('Deposit successful!');
@@ -145,6 +147,15 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
     setDepositAmount('');
     setDepositStep('amount');
     setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleWithdrawClick = () => {
+    if (settings.isWithdrawalMaintenance) {
+      setError('Withdrawal is currently in maintenance mode. Please try again later.');
+      setTimeout(() => setError(''), 4000);
+      return;
+    }
+    setWithdrawModal(true);
   };
 
   const handleWithdraw = () => {
@@ -218,29 +229,51 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   }, [activeInvestment]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#070b14] text-slate-300">
-      <header className="sticky top-0 z-40 bg-[#070b14]/90 backdrop-blur-md border-b border-white/5 px-6 py-4 flex justify-between items-center shadow-lg">
+    <div className="flex flex-col min-h-screen bg-[#070b14] text-slate-300 relative">
+      {/* Background Layer */}
+      {settings.userPanelBackgroundUrl && (
+        <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+          {settings.isUserPanelVideo ? (
+            <video 
+              autoPlay 
+              loop 
+              muted 
+              playsInline 
+              className="absolute inset-0 w-full h-full object-cover"
+              src={settings.userPanelBackgroundUrl}
+            />
+          ) : (
+            <div 
+              className="absolute inset-0 w-full h-full bg-cover bg-center"
+              style={{ backgroundImage: `url(${settings.userPanelBackgroundUrl})` }}
+            />
+          )}
+          <div className="absolute inset-0 bg-[#070b14]/70 backdrop-blur-[2px]" />
+        </div>
+      )}
+
+      <header className="sticky top-0 z-40 bg-[#070b14]/90 backdrop-blur-md border-b border-white/5 px-6 py-4 flex justify-between items-center shadow-lg relative">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-black italic text-white">M</div>
-          <span className="font-black text-lg text-white">MPRO <span className="text-indigo-500 uppercase tracking-tighter">Pro</span></span>
+          <span className="font-black text-lg text-white">MPRO <span className="text-indigo-500 uppercase tracking-tighter italic">Invest</span></span>
         </div>
-        <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl shadow-lg">Deposit</button>
+        <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl shadow-lg hover:bg-indigo-50 transition-colors">Deposit</button>
       </header>
 
-      <main className="flex-1 pb-32 overflow-y-auto">
+      <main className="flex-1 pb-32 overflow-y-auto no-scrollbar relative z-10">
         <div className="max-w-2xl mx-auto p-6 space-y-6">
-          {success && <div className="p-4 bg-green-500/10 text-green-400 rounded-2xl text-xs font-bold border border-green-500/20">{success}</div>}
-          {error && <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl text-xs font-bold border border-red-500/20">{error}</div>}
+          {success && <div className="p-4 bg-green-500/10 text-green-400 rounded-2xl text-xs font-bold border border-green-500/20 animate-in fade-in slide-in-from-top-2">{success}</div>}
+          {error && <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl text-xs font-bold border border-red-500/20 animate-in fade-in slide-in-from-top-2">{error}</div>}
 
           {/* Balance Card */}
           <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
              <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-white/10 rounded-full blur-[80px]"></div>
              <div className="relative z-10">
-               <p className="text-indigo-200 text-[10px] font-black uppercase tracking-widest mb-1">Portfolio Balance</p>
+               <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Portfolio Balance</p>
                <h2 className="text-5xl font-black tracking-tighter">{CURRENCY}{user.balance.toLocaleString()}</h2>
-               <div className="flex gap-4 mt-6">
-                  <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-xs uppercase transition-all">Add Funds</button>
-                  <button onClick={() => setWithdrawModal(true)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-xs uppercase transition-all">Withdraw</button>
+               <div className="flex gap-4 mt-8">
+                  <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="flex-1 py-3.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-xs uppercase transition-all">Add Funds</button>
+                  <button onClick={handleWithdrawClick} className="flex-1 py-3.5 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl font-bold text-xs uppercase transition-all">Withdraw</button>
                </div>
              </div>
           </div>
@@ -249,119 +282,146 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
             <div className="space-y-6 animate-in fade-in duration-500">
               {/* Active Investment */}
               {activeInvestment ? (
-                <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-6">
+                <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-6 backdrop-blur-md">
                   <div className="flex justify-between items-start">
                     <div>
                        <h3 className="text-xl font-black text-white uppercase">{activeInvestment.productName}</h3>
-                       <p className="text-[10px] text-slate-500 font-bold uppercase">Active Contract</p>
+                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Active Contract</p>
                     </div>
                     <div className="text-right">
                        <p className="text-lg font-black text-indigo-400">+{CURRENCY}{dailyEarnings.toLocaleString()}</p>
-                       <p className="text-[10px] text-slate-500 font-bold uppercase">Daily ROI</p>
+                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Daily ROI</p>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                        <span>Cycle Progress</span>
                        <span>{Math.round(progress)}%</span>
                     </div>
                     <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                       <div className="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(79,70,229,0.5)]" style={{ width: `${progress}%` }}></div>
+                       <div className="h-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_15px_rgba(79,70,229,0.5)]" style={{ width: `${progress}%` }}></div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div onClick={() => setActiveTab('products')} className="bg-white/5 border-2 border-dashed border-white/10 p-12 rounded-3xl text-center cursor-pointer hover:bg-white/[0.07] transition-all">
-                  <p className="text-white font-black uppercase text-sm">Buy Your First Asset</p>
-                  <p className="text-xs text-slate-500 mt-1">Start earning 26% daily returns now.</p>
+                <div onClick={() => setActiveTab('products')} className="bg-white/5 border-2 border-dashed border-white/10 p-12 rounded-3xl text-center cursor-pointer hover:bg-white/[0.07] transition-all group backdrop-blur-md">
+                  <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <span className="text-3xl">💎</span>
+                  </div>
+                  <p className="text-white font-black uppercase text-sm tracking-widest">Buy Your First Asset</p>
+                  <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-tighter">Start earning 26% daily returns now.</p>
                 </div>
               )}
 
               {/* Coupon Section */}
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
-                 <h4 className="text-[10px] font-black text-white uppercase tracking-widest ml-1">Redeem Bonus Coupon</h4>
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4 shadow-xl backdrop-blur-md">
+                 <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em] ml-1">Redeem Bonus Coupon</h4>
                  <div className="flex gap-3">
                     <input 
                       type="text" 
                       placeholder="Enter Coupon Code"
-                      className="flex-1 p-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-white font-bold text-sm"
+                      className="flex-1 p-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-white font-bold text-sm tracking-widest placeholder-slate-600"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value)}
                     />
-                    <button onClick={handleRedeemCoupon} className="px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-[10px] tracking-widest shadow-xl">Redeem</button>
+                    <button onClick={handleRedeemCoupon} className="px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-[10px] tracking-[0.2em] shadow-xl hover:bg-indigo-500 transition-colors">Redeem</button>
                  </div>
               </div>
 
+              {/* Telegram Links Section */}
+              <div className="grid grid-cols-2 gap-4">
+                 <a href={settings.telegramAdminLink} target="_blank" rel="noreferrer" className="bg-[#0088cc]/10 border border-[#0088cc]/20 p-5 rounded-2xl flex flex-col items-center text-center space-y-2 hover:bg-[#0088cc]/20 transition-all backdrop-blur-md">
+                    <span className="text-2xl">👤</span>
+                    <span className="text-[10px] font-black text-[#0088cc] uppercase tracking-widest">Admin Telegram</span>
+                 </a>
+                 <a href={settings.telegramChannelLink} target="_blank" rel="noreferrer" className="bg-[#0088cc]/10 border border-[#0088cc]/20 p-5 rounded-2xl flex flex-col items-center text-center space-y-2 hover:bg-[#0088cc]/20 transition-all backdrop-blur-md">
+                    <span className="text-2xl">📢</span>
+                    <span className="text-[10px] font-black text-[#0088cc] uppercase tracking-widest">Telegram Channel</span>
+                 </a>
+              </div>
+
               {/* Platform Insight Section */}
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 space-y-6">
-                 <div className="space-y-2">
-                    <h3 className="text-xl font-black text-white uppercase tracking-tighter underline decoration-indigo-500 underline-offset-4">Platform Overview</h3>
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 space-y-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
+                 <div className="absolute bottom-[-10%] right-[-5%] text-8xl opacity-5 grayscale">M</div>
+                 <div className="space-y-3">
+                    <h3 className="text-2xl font-black text-white uppercase tracking-tighter underline decoration-indigo-500 underline-offset-8">Platform Overview</h3>
                     <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                       {APP_NAME} Pro is a state-of-the-art asset-backed investment protocol. We specialize in high-utilization logistics, real estate, and agricultural technology assets that provide stable, daily returns to our global community of investors.
+                       {APP_NAME} is a high-yield asset deployment protocol. We acquire and manage logistics, real estate, and industrial equipment units, distributing the daily revenue generated from these assets directly to your wallet.
                     </p>
                  </div>
                  
                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Our Asset Tiers</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 flex gap-4 items-center">
-                          <div className="text-2xl">🚗</div>
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                       <span className="w-4 h-px bg-indigo-400/30"></span>
+                       Our Asset Tiers
+                       <span className="w-4 h-px bg-indigo-400/30"></span>
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4">
+                       <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 flex gap-4 items-center group">
+                          <div className="text-3xl group-hover:scale-110 transition-transform">🚗</div>
                           <div>
-                            <p className="text-white font-black uppercase text-xs mb-1">Logistics Tier</p>
-                            <p className="text-[10px] text-slate-500 font-medium">Motorcycles, Vans, and Sedans for urban delivery networks.</p>
+                            <p className="text-white font-black uppercase text-xs mb-1 tracking-tight">Logistics Infrastructure</p>
+                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tighter">High-utilization Motorcycles, Sedans, and Delivery Vans.</p>
                           </div>
                        </div>
-                       <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 flex gap-4 items-center">
-                          <div className="text-2xl">🏠</div>
+                       <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 flex gap-4 items-center group">
+                          <div className="text-3xl group-hover:scale-110 transition-transform">🏘️</div>
                           <div>
-                            <p className="text-white font-black uppercase text-xs mb-1">Housing Tier</p>
-                            <p className="text-[10px] text-slate-500 font-medium">Studio Apartments and Mini Estates in growth corridors.</p>
+                            <p className="text-white font-black uppercase text-xs mb-1 tracking-tight">Prime Real Estate</p>
+                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tighter">Yield-optimized Studio Apartments and Residential Mini Estates.</p>
+                          </div>
+                       </div>
+                       <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 flex gap-4 items-center group">
+                          <div className="text-3xl group-hover:scale-110 transition-transform">🚜</div>
+                          <div>
+                            <p className="text-white font-black uppercase text-xs mb-1 tracking-tight">Agricultural Units</p>
+                            <p className="text-[10px] text-slate-500 font-medium leading-relaxed uppercase tracking-tighter">Industrial equipment and land plots for large-scale production.</p>
                           </div>
                        </div>
                     </div>
                  </div>
 
-                 <div className="pt-4 border-t border-white/5">
-                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest text-center">Protocol Integrity: 100% Asset-Backed Liquidity</p>
+                 <div className="pt-6 border-t border-white/5">
+                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.4em] text-center">Protocol Integrity: 100% Asset-Backed Liquidity Pool</p>
                  </div>
               </div>
             </div>
           )}
 
           {activeTab === 'products' && (
-            <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500 relative z-10">
               <div className="flex justify-between items-center px-2">
-                <h3 className="text-xl font-black text-white uppercase">Asset Marketplace</h3>
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Asset Marketplace</h3>
                 <span className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">26% DAILY ROI</span>
               </div>
               <div className="space-y-4">
                 {products.map(p => (
-                  <div key={p.id} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col sm:flex-row group hover:border-indigo-500/40 transition-all">
-                    <img src={p.imageUrl} className="w-full sm:w-40 h-32 sm:h-auto object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" alt={p.name} />
+                  <div key={p.id} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col sm:flex-row group hover:border-indigo-500/40 transition-all shadow-lg backdrop-blur-md">
+                    <img src={p.imageUrl} className="w-full sm:w-40 h-40 sm:h-auto object-cover opacity-60 group-hover:opacity-100 transition-all duration-700" alt={p.name} />
                     <div className="p-6 flex-1 flex flex-col justify-between">
-                       <div className="flex justify-between items-start mb-4">
+                       <div className="flex justify-between items-start mb-6">
                          <div className="space-y-1">
-                            <h4 className="text-lg font-black text-white uppercase tracking-tight">{p.name}</h4>
-                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Digital Asset Unit</p>
+                            <h4 className="text-xl font-black text-white uppercase tracking-tight">{p.name}</h4>
+                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Verified Asset Tier</p>
                          </div>
                          <div className="text-right">
-                            <p className="text-2xl font-black text-indigo-500 leading-none">{CURRENCY}{p.price.toLocaleString()}</p>
-                            <p className="text-[9px] text-green-400 font-bold uppercase mt-1">+{CURRENCY}{(p.price * 0.26).toLocaleString()} / Day</p>
+                            <p className="text-2xl font-black text-indigo-500 leading-none tracking-tighter">{CURRENCY}{p.price.toLocaleString()}</p>
+                            <p className="text-[9px] text-green-400 font-black uppercase mt-1 tracking-widest">+{CURRENCY}{(p.price * 0.26).toLocaleString()} / Day</p>
                          </div>
                        </div>
-                       <div className="flex items-center gap-4 justify-between border-t border-white/5 pt-4">
-                          <div className="flex gap-4">
+                       <div className="flex items-center gap-4 justify-between border-t border-white/5 pt-5">
+                          <div className="flex gap-6">
                             <div>
-                               <p className="text-[8px] font-black text-slate-500 uppercase">Yield Rate</p>
-                               <p className="text-xs font-bold text-white">26.0%</p>
+                               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Daily Yield</p>
+                               <p className="text-xs font-bold text-white tracking-widest">26.0%</p>
                             </div>
-                            <div className="w-px h-6 bg-white/10"></div>
+                            <div className="w-px h-8 bg-white/10"></div>
                             <div>
-                               <p className="text-[8px] font-black text-slate-500 uppercase">Lease Term</p>
-                               <p className="text-xs font-bold text-white">{p.duration} Days</p>
+                               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Lease Term</p>
+                               <p className="text-xs font-bold text-white tracking-widest">{p.duration} Days</p>
                             </div>
                           </div>
-                          <button onClick={() => handleInvestment(p)} className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-xl transition-all shadow-xl active:scale-95">
+                          <button onClick={() => handleInvestment(p)} className="px-10 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 tracking-[0.2em]">
                             Buy
                           </button>
                        </div>
@@ -373,101 +433,104 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
           )}
 
           {activeTab === 'history' && <TransactionHistory userId={user.id} />}
-          {activeTab === 'profile' && <ProfileSettings user={user} />}
+          {activeTab === 'profile' && <ProfileSettings user={user} onLogout={onLogout} />}
           {activeTab === 'chat' && <Chat user={user} isAdmin={false} />}
         </div>
       </main>
 
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-lg bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 px-6 py-4 flex justify-between items-center z-40 rounded-[2rem] shadow-2xl">
+      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-lg bg-[#0f172a]/95 backdrop-blur-xl border border-white/10 px-6 py-4 flex justify-between items-center z-40 rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
         {[
-          { id: 'home', icon: 'M', label: 'HOME' },
-          { id: 'products', icon: 'A', label: 'ASSETS' },
-          { id: 'history', icon: 'L', label: 'LOGS' },
-          { id: 'chat', icon: 'H', label: 'HELP' },
-          { id: 'profile', icon: 'U', label: 'ME' }
+          { id: 'home', icon: '🏠', label: 'HOME' },
+          { id: 'products', icon: '🏦', label: 'ASSETS' },
+          { id: 'history', icon: '📊', label: 'LOGS' },
+          { id: 'chat', icon: '💬', label: 'HELP' },
+          { id: 'profile', icon: '👤', label: 'ME' }
         ].map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center space-y-1 transition-all ${activeTab === item.id ? 'text-indigo-400 scale-110' : 'text-slate-500'}`}>
-            <span className="font-black text-sm">{item.icon}</span>
+          <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center space-y-1.5 transition-all ${activeTab === item.id ? 'text-indigo-400 scale-110' : 'text-slate-500 hover:text-slate-400'}`}>
+            <span className="text-xl">{item.icon}</span>
             <span className="text-[8px] font-black tracking-widest uppercase">{item.label}</span>
           </button>
         ))}
       </nav>
 
-      {/* Modals remain same as before for functionality */}
+      {/* Deposit Modal */}
       {depositModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 shadow-3xl">
               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Add Funds</h3>
               {depositStep === 'amount' ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                     <label className="text-[10px] font-black text-slate-500 uppercase">Amount to Deposit</label>
-                     <input type="number" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white font-black text-xl outline-none focus:ring-2 focus:ring-indigo-500" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0.00" />
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Capital Amount</label>
+                     <input type="number" className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-white font-black text-2xl outline-none focus:ring-2 focus:ring-indigo-500 tracking-tighter" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0.00" />
                   </div>
-                  <button onClick={() => setDepositStep('method')} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-widest shadow-xl">Continue</button>
-                  <button onClick={() => setDepositModal(false)} className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+                  <button onClick={() => setDepositStep('method')} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-indigo-500 transition-colors">Continue</button>
+                  <button onClick={() => setDepositModal(false)} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest">Cancel</button>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <button onClick={() => handleDeposit('automatic')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-left hover:bg-indigo-600/20 transition-all flex justify-between items-center group">
-                     <div>
-                        <p className="text-white font-black uppercase text-xs">Automatic Payment</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">Pay via Paystack (Instant)</p>
+                  <button onClick={() => handleDeposit('automatic')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl text-left hover:bg-indigo-600/20 transition-all flex justify-between items-center group">
+                     <div className="space-y-1">
+                        <p className="text-white font-black uppercase text-xs tracking-widest">Automatic Payment</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Instant Activation</p>
                      </div>
-                     <span className="text-indigo-500 group-hover:translate-x-1 transition-transform">→</span>
+                     <span className="text-indigo-500 group-hover:translate-x-1 transition-transform text-xl">→</span>
                   </button>
-                  <button onClick={() => handleDeposit('manual')} className="w-full p-5 bg-white/5 border border-white/10 rounded-2xl text-left hover:bg-indigo-600/20 transition-all flex justify-between items-center group">
-                     <div>
-                        <p className="text-white font-black uppercase text-xs">Manual Transfer</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">Bank Transfer (1-2hr Audit)</p>
+                  <button onClick={() => handleDeposit('manual')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl text-left hover:bg-indigo-600/20 transition-all flex justify-between items-center group">
+                     <div className="space-y-1">
+                        <p className="text-white font-black uppercase text-xs tracking-widest">Manual Transfer</p>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">1-2 Hour Verification</p>
                      </div>
-                     <span className="text-indigo-500 group-hover:translate-x-1 transition-transform">→</span>
+                     <span className="text-indigo-500 group-hover:translate-x-1 transition-transform text-xl">→</span>
                   </button>
-                  <button onClick={() => setDepositStep('amount')} className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest">Back</button>
+                  <button onClick={() => setDepositStep('amount')} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest">Back</button>
                 </div>
               )}
            </div>
         </div>
       )}
 
+      {/* Withdrawal Modal */}
       {withdrawModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 overflow-y-auto">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 my-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 overflow-y-auto animate-in fade-in duration-300">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 my-auto shadow-3xl">
               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Harvest Wealth</h3>
               <div className="space-y-4">
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Amount (Min 5,000)</label>
-                    <input type="number" className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Withdrawal Amount</label>
+                    <input type="number" className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-lg tracking-tight focus:ring-1 focus:ring-indigo-500" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Bank Name</label>
-                    <select className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
-                       <option value="">Select Bank</option>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Destination Bank</label>
+                    <select className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-sm focus:ring-1 focus:ring-indigo-500 appearance-none" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
+                       <option value="">Select Protocol Bank</option>
                        {NIGERIAN_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Account Number</label>
-                    <input type="text" maxLength={10} className="w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="10 Digits" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Identifier</label>
+                    <input type="text" maxLength={10} className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-lg tracking-[0.2em] focus:ring-1 focus:ring-indigo-500" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="10 Digits" />
                  </div>
-                 {isVerifying && <p className="text-[10px] text-indigo-400 font-bold animate-pulse">Verifying Account...</p>}
-                 {verifiedName && <p className="text-[10px] text-green-400 font-black uppercase bg-green-500/10 p-2 rounded-lg border border-green-500/20">{verifiedName}</p>}
+                 {isVerifying && <p className="text-[10px] text-indigo-400 font-black tracking-widest animate-pulse ml-1 uppercase">Syncing with Node...</p>}
+                 {verifiedName && <p className="text-[10px] text-green-400 font-black uppercase bg-green-500/10 p-3 rounded-xl border border-green-500/20 tracking-widest animate-in fade-in">{verifiedName}</p>}
                  
-                 <button onClick={handleWithdraw} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-widest shadow-xl">Submit Withdrawal</button>
-                 <button onClick={() => setWithdrawModal(false)} className="w-full text-slate-500 text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+                 <button onClick={handleWithdraw} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-indigo-500 transition-colors">Confirm Withdrawal</button>
+                 <button onClick={() => setWithdrawModal(false)} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest">Cancel</button>
               </div>
            </div>
         </div>
       )}
 
+      {/* Investment Confirmation Modal */}
       {paystackModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 text-center">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Finalize Purchase</h3>
-              <p className="text-slate-400 text-xs leading-relaxed">Confirm acquisition of <span className="text-white font-bold">{paystackModal.name}</span> for {CURRENCY}{paystackModal.price.toLocaleString()}. Capital deployment will initiate instantly.</p>
-              <div className="flex gap-4">
-                 <button onClick={() => setPaystackModal(null)} className="flex-1 py-3 text-slate-500 font-bold uppercase text-[10px]">Back</button>
-                 <button onClick={confirmInvestment} className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-widest shadow-xl">Confirm & Buy</button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 text-center shadow-3xl">
+              <div className="w-20 h-20 bg-indigo-600/20 rounded-full flex items-center justify-center mx-auto text-4xl">💎</div>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Asset Acquisition</h3>
+              <p className="text-slate-400 text-xs leading-relaxed uppercase tracking-tighter">Confirming purchase of <span className="text-white font-black">{paystackModal.name}</span> for {CURRENCY}{paystackModal.price.toLocaleString()}. Capital will be deployed instantly.</p>
+              <div className="flex gap-4 pt-2">
+                 <button onClick={() => setPaystackModal(null)} className="flex-1 py-4 text-slate-500 font-black uppercase text-[10px] tracking-widest">Back</button>
+                 <button onClick={confirmInvestment} className="flex-1 py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-indigo-500 transition-colors">Confirm & Buy</button>
               </div>
            </div>
         </div>

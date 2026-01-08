@@ -78,4 +78,9 @@ export interface GlobalSettings {
   defaultDuration: number;
   defaultRoi: number;
   adminEmail: string;
+  telegramAdminLink: string;
+  telegramChannelLink: string;
+  userPanelBackgroundUrl: string;
+  isUserPanelVideo: boolean;
+  isWithdrawalMaintenance: boolean;
 }
