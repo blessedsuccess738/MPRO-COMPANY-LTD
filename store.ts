@@ -1,12 +1,9 @@
 
-import { User, Product, Investment, Transaction, ChatMessage, GlobalSettings, UserRole, TransactionType, TransactionStatus } from './types';
+import { User, Product, Investment, Transaction, ChatMessage, GlobalSettings, UserRole, TransactionType, TransactionStatus, Coupon } from './types';
 import { INITIAL_PRODUCTS, INITIAL_SETTINGS } from './constants';
 
-/**
- * Simple local storage based store to mimic a backend
- */
 class MProStore {
-  private static STORAGE_KEY = 'mpro_data';
+  private static STORAGE_KEY = 'mpro_data_v2';
 
   private data: {
     users: User[];
@@ -16,12 +13,16 @@ class MProStore {
     messages: ChatMessage[];
     settings: GlobalSettings;
     currentUser: User | null;
+    coupons: Coupon[];
   };
 
   constructor() {
     const saved = localStorage.getItem(MProStore.STORAGE_KEY);
     if (saved) {
       this.data = JSON.parse(saved);
+      // Migrate missing properties if any
+      this.data.settings = { ...INITIAL_SETTINGS, ...this.data.settings };
+      if (!this.data.coupons) this.data.coupons = [];
     } else {
       this.data = {
         users: [],
@@ -31,6 +32,7 @@ class MProStore {
         messages: [],
         settings: INITIAL_SETTINGS,
         currentUser: null,
+        coupons: []
       };
       this.save();
     }
@@ -65,14 +67,41 @@ class MProStore {
     this.save();
   }
 
+  // Coupons
+  getCoupons() { return this.data.coupons; }
+  addCoupon(coupon: Coupon) {
+    this.data.coupons.push(coupon);
+    this.save();
+  }
+  deleteCoupon(id: string) {
+    this.data.coupons = this.data.coupons.filter(c => c.id !== id);
+    this.save();
+  }
+
+  redeemCoupon(userId: string, code: string): { success: boolean, amount: number, error?: string } {
+    const coupon = this.data.coupons.find(c => c.code.toUpperCase() === code.toUpperCase());
+    if (!coupon) return { success: false, amount: 0, error: 'Invalid coupon code.' };
+
+    const user = this.data.users.find(u => u.id === userId);
+    if (!user) return { success: false, amount: 0, error: 'User not found.' };
+
+    if (user.usedCoupons?.includes(coupon.id)) {
+      return { success: false, amount: 0, error: 'You have already used this coupon.' };
+    }
+
+    const updatedUsedCoupons = [...(user.usedCoupons || []), coupon.id];
+    this.updateUser(userId, { 
+      balance: user.balance + coupon.amount,
+      usedCoupons: updatedUsedCoupons
+    });
+
+    return { success: true, amount: coupon.amount };
+  }
+
   // Products
   getProducts() { return this.data.products; }
   updateProduct(id: string, updates: Partial<Product>) {
     this.data.products = this.data.products.map(p => p.id === id ? { ...p, ...updates } : p);
-    this.save();
-  }
-  deleteProduct(id: string) {
-    this.data.products = this.data.products.filter(p => p.id !== id);
     this.save();
   }
   addProduct(p: Product) {
@@ -87,10 +116,6 @@ class MProStore {
   }
   addInvestment(inv: Investment) {
     this.data.investments.push(inv);
-    this.save();
-  }
-  completeInvestment(id: string) {
-    this.data.investments = this.data.investments.map(i => i.id === id ? { ...i, status: 'completed' as const } : i);
     this.save();
   }
 

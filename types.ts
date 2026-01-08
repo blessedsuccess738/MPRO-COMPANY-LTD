@@ -25,8 +25,16 @@ export interface User {
   role: UserRole;
   balance: number;
   isFrozen: boolean;
-  isRestricted?: boolean; // New: restriction for withdrawals
-  warningMessage?: string; // New: admin message/warning
+  isRestricted?: boolean;
+  warningMessage?: string;
+  usedCoupons?: string[]; // Track redeemed coupons
+  createdAt: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  amount: number;
   createdAt: string;
 }
 
@@ -34,8 +42,8 @@ export interface Product {
   id: string;
   name: string;
   price: number;
-  dailyRoi: number; // Percentage, e.g., 26
-  duration: number; // Days
+  dailyRoi: number;
+  duration: number;
   imageUrl: string;
 }
 
@@ -82,7 +90,14 @@ export interface GlobalSettings {
   adminEmail: string;
   telegramAdminLink: string;
   telegramChannelLink: string;
+  // Visuals
   userPanelBackgroundUrl: string;
   isUserPanelVideo: boolean;
+  welcomeBackgroundUrl: string;
+  isWelcomeVideo: boolean;
+  authBackgroundUrl: string;
+  isAuthVideo: boolean;
+  // Maintenance
   isWithdrawalMaintenance: boolean;
+  isGlobalMaintenance: boolean;
 }
