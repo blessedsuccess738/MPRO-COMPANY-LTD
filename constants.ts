@@ -5,6 +5,9 @@ export const APP_NAME = 'MPRO INVEST';
 export const ADMIN_EMAIL = 'blessedsuccess538@gmail.com';
 export const CURRENCY = '₦';
 
+// Paystack Public Key
+export const PAYSTACK_PUBLIC_KEY = 'pk_live_f504acddecaa332ffb8a8835085b67adbbf007cd';
+
 export interface Bank {
   name: string;
   code: string;
