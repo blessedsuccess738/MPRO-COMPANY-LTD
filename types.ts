@@ -8,7 +8,8 @@ export enum TransactionType {
   DEPOSIT = 'deposit',
   MANUAL_DEPOSIT = 'manual_deposit',
   WITHDRAWAL = 'withdrawal',
-  EARNINGS = 'earnings'
+  EARNINGS = 'earnings',
+  REFERRAL_BONUS = 'referral_bonus'
 }
 
 export enum TransactionStatus {
@@ -27,7 +28,9 @@ export interface User {
   isFrozen: boolean;
   isRestricted?: boolean;
   warningMessage?: string;
-  usedCoupons?: string[]; // Track redeemed coupons
+  usedCoupons?: string[];
+  referralCode: string;
+  referredBy?: string; // ID of the user who referred them
   createdAt: string;
 }
 
@@ -70,7 +73,7 @@ export interface Transaction {
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
-  proofImageUrl?: string; // For manual deposit screenshots
+  proofImageUrl?: string;
 }
 
 export interface ChatMessage {
@@ -88,21 +91,19 @@ export interface GlobalSettings {
   maxInvestment: number;
   defaultDuration: number;
   defaultRoi: number;
+  referralBonus: number;
   adminEmail: string;
   telegramAdminLink: string;
   telegramChannelLink: string;
-  // Manual Deposit Node
   manualBankName: string;
   manualAccountNumber: string;
   manualAccountName: string;
-  // Visuals
   userPanelBackgroundUrl: string;
   isUserPanelVideo: boolean;
   welcomeBackgroundUrl: string;
   isWelcomeVideo: boolean;
   authBackgroundUrl: string;
   isAuthVideo: boolean;
-  // Maintenance
   isWithdrawalMaintenance: boolean;
   isGlobalMaintenance: boolean;
 }

@@ -7,7 +7,6 @@ import Chat from './Chat';
 import TransactionHistory from './TransactionHistory';
 import ProfileSettings from './ProfileSettings';
 
-// Access the Paystack global object
 declare const PaystackPop: any;
 
 interface Props {
@@ -22,7 +21,6 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   const [products] = useState<Product[]>(store.getProducts());
   const [settings, setSettings] = useState(store.getSettings());
   
-  // Modals & States
   const [paystackModal, setPaystackModal] = useState<Product | null>(null);
   const [depositModal, setDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -131,6 +129,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
         amount: amount * 100, 
         currency: "NGN",
         callback: (response: any) => {
+          // THIS IS ONLY TRIGGERED ON SUCCESSFUL PAYMENT
           store.updateUser(user.id, { balance: user.balance + amount });
           store.addTransaction({
             id: 'paystack-' + response.reference,
@@ -138,7 +137,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
             amount: amount,
             type: TransactionType.DEPOSIT,
             status: TransactionStatus.PAID,
-            description: 'Paystack Automatic Deposit',
+            description: 'Automatic Paystack Node Sync',
             createdAt: new Date().toISOString()
           });
           setSuccess(`Funded ${CURRENCY}${amount.toLocaleString()} automatically!`);
@@ -147,8 +146,8 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
           setDepositStep('amount');
         },
         onClose: () => {
-          setError('Payment window closed by user.');
-          setTimeout(() => setError(''), 3000);
+          // NO DATABASE UPDATE HAPPENS HERE. SESSION DELETED.
+          console.log('Payment node cancelled by user.');
         }
       });
       handler.openIframe();
@@ -222,6 +221,13 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
     return Math.min(100, Math.max(0, ((Date.now() - start) / (end - start)) * 100));
   }, [activeInvestment]);
 
+  const shareReferral = () => {
+    const link = `${window.location.origin}/?ref=${user.referralCode}`;
+    navigator.clipboard.writeText(link);
+    setSuccess('Referral Link Copied!');
+    setTimeout(() => setSuccess(''), 2000);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#070b14] text-slate-300 relative">
       {settings.userPanelBackgroundUrl && (
@@ -274,15 +280,26 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                    <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-2">
                       <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Protocol Stats</p>
                       <h4 className="text-white font-black text-sm uppercase">26% Daily Returns</h4>
-                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Deployed capital generates consistent logistics-backed yields over a 30-day fixed cycle.</p>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Deployed capital generates consistent logistics-backed yields over a 30-day cycle.</p>
                    </div>
                    <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-2">
                       <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Asset Marketplace</p>
                       <h4 className="text-white font-black text-sm uppercase">Verified Logistics</h4>
-                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Assets range from small delivery units to residential estate blocks. Choose your tier.</p>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase leading-relaxed">Assets range from small delivery units to residential estate blocks. Select your tier.</p>
                    </div>
                 </div>
               )}
+
+              {/* Referral Card */}
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-4 opacity-5 text-4xl group-hover:scale-125 transition-transform duration-700">🚀</div>
+                 <div className="space-y-1">
+                    <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Network Bounty Program</h4>
+                    <p className="text-sm font-black text-indigo-400 uppercase">Earn {CURRENCY}{settings.referralBonus.toLocaleString()} per referral</p>
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Your Code: <span className="text-white">{user.referralCode}</span></p>
+                 </div>
+                 <button onClick={shareReferral} className="w-full sm:w-auto px-6 py-3 bg-indigo-600 text-white font-black rounded-xl uppercase text-[10px] shadow-lg hover:bg-indigo-500 transition-all">Copy Invite Link</button>
+              </div>
 
               <div className="bg-white/5 border border-white/10 rounded-3xl p-6 space-y-4">
                  <div className="flex items-center gap-2">

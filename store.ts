@@ -20,7 +20,6 @@ class MProStore {
     const saved = localStorage.getItem(MProStore.STORAGE_KEY);
     if (saved) {
       this.data = JSON.parse(saved);
-      // Migrate missing properties if any
       this.data.settings = { ...INITIAL_SETTINGS, ...this.data.settings };
       if (!this.data.coupons) this.data.coupons = [];
     } else {
@@ -54,7 +53,28 @@ class MProStore {
 
   getUsers() { return this.data.users; }
   
+  generateReferralCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
   addUser(user: User) {
+    // If user was referred, credit the referrer
+    if (user.referredBy) {
+      const referrer = this.data.users.find(u => u.referralCode === user.referredBy);
+      if (referrer) {
+        const bonus = this.data.settings.referralBonus;
+        this.updateUser(referrer.id, { balance: referrer.balance + bonus });
+        this.addTransaction({
+          id: 'ref-' + Date.now(),
+          userId: referrer.id,
+          amount: bonus,
+          type: TransactionType.REFERRAL_BONUS,
+          status: TransactionStatus.PAID,
+          description: `Referral Bonus: ${user.email}`,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
     this.data.users.push(user);
     this.save();
   }

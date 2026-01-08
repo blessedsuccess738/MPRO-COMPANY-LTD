@@ -5,7 +5,6 @@ export const APP_NAME = 'MPRO INVEST';
 export const ADMIN_EMAIL = 'blessedsuccess538@gmail.com';
 export const CURRENCY = '₦';
 
-// Paystack Public Key
 export const PAYSTACK_PUBLIC_KEY = 'pk_live_f504acddecaa332ffb8a8835085b67adbbf007cd';
 
 export interface Bank {
@@ -135,6 +134,7 @@ export const INITIAL_SETTINGS: GlobalSettings = {
   maxInvestment: 500000,
   defaultDuration: 30,
   defaultRoi: 26,
+  referralBonus: 500, // Default 500 Naira for referral
   adminEmail: ADMIN_EMAIL,
   telegramAdminLink: 'https://t.me/mpro_admin',
   telegramChannelLink: 'https://t.me/mpro_official',

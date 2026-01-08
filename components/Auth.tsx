@@ -14,6 +14,7 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [error, setError] = useState('');
   const settings = store.getSettings();
 
@@ -41,6 +42,7 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
             role: UserRole.ADMIN,
             balance: 0,
             isFrozen: false,
+            referralCode: 'ADMIN_PRO',
             createdAt: new Date().toISOString()
           };
           store.addUser(admin);
@@ -60,6 +62,13 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
         setError('Email exists');
         return;
       }
+
+      // Referral validation
+      if (referralCode && !users.some(u => u.referralCode === referralCode.toUpperCase())) {
+        setError('Invalid referral code');
+        return;
+      }
+
       const newUser: User = {
         id: 'u-' + Date.now(),
         email,
@@ -68,6 +77,8 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
         balance: 0,
         isFrozen: false,
         usedCoupons: [],
+        referralCode: store.generateReferralCode(),
+        referredBy: referralCode.toUpperCase() || undefined,
         createdAt: new Date().toISOString()
       };
       store.addUser(newUser);
@@ -78,7 +89,6 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
 
   return (
     <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Dynamic Background */}
       {settings.authBackgroundUrl ? (
         <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
           {settings.isAuthVideo ? (
@@ -114,10 +124,16 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
               <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {mode === 'signup' && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confirm Password</label>
-                <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confirm Password</label>
+                  <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Referral Code (Optional)</label>
+                  <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold uppercase" placeholder="MPRO-XYZ" value={referralCode} onChange={(e) => setReferralCode(e.target.value)} />
+                </div>
+              </>
             )}
             <button type="submit" className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl uppercase tracking-widest text-xs">{mode === 'login' ? 'Login' : 'Sign up'}</button>
           </form>
