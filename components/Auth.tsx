@@ -91,7 +91,7 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
              <span className="text-white text-4xl font-black italic">M</span>
           </div>
           <h2 className="text-4xl font-black text-white tracking-tighter uppercase">
-            {mode === 'login' ? 'Authenticate' : 'Initialize'}
+            {mode === 'login' ? 'Login' : 'Sign up'}
           </h2>
           <p className="text-slate-400 font-medium text-sm">
             {mode === 'login' ? `Access your ${APP_NAME} dashboard` : `Join the ${APP_NAME} investment network`}
@@ -148,7 +148,7 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
               type="submit"
               className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95 text-xs uppercase tracking-widest"
             >
-              {mode === 'login' ? 'Begin Protocol Authentication' : 'Initialize Portfolio'}
+              {mode === 'login' ? 'Login' : 'Sign up'}
             </button>
           </form>
 
