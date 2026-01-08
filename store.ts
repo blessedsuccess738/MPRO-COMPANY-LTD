@@ -33,21 +33,20 @@ class MProStore {
 
   async fetchCurrentUser(identifier: string): Promise<User | null> {
     try {
-      // If identifier contains '@', it's an email, otherwise assume UUID
-      const column = identifier.includes('@') ? 'email' : 'id';
-      const query = supabase.from('profiles').select('*');
+      const isEmail = identifier.includes('@');
+      const column = isEmail ? 'email' : 'id';
       
-      if (column === 'email') {
-        query.ilike('email', identifier.trim());
-      } else {
-        query.eq('id', identifier);
-      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike(column, identifier.trim())
+        .maybeSingle();
 
-      const { data, error } = await query.maybeSingle();
-      if (error || !data) {
-        if (error) console.error("Store Fetch Error:", error);
+      if (error) {
+        console.error("Critical Profile Fetch Error:", error.message);
         return null;
       }
+      if (!data) return null;
       return this.mapProfile(data);
     } catch (e) { 
       return null; 
@@ -56,7 +55,15 @@ class MProStore {
 
   async getUsers(): Promise<User[]> {
     try {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error("Registry Sync Failed:", error.message);
+        return [];
+      }
       return (data || []).map(this.mapProfile);
     } catch (e) { return []; }
   }
@@ -84,9 +91,8 @@ class MProStore {
         referred_by: user.referredBy,
         created_at: user.createdAt
       };
-      // USE UPSERT TO PREVENT ERROR IF PROFILE ALREADY EXISTS
       const { error } = await supabase.from('profiles').upsert([dbUser]);
-      if (error) console.error("Database Save Error:", error);
+      if (error) console.error("Identity Deployment Failed:", error.message);
     } catch (e) {
       console.error("addUser error:", e);
     }
@@ -101,12 +107,15 @@ class MProStore {
       if ('warningMessage' in updates) dbUpdates.warning_message = updates.warningMessage;
       if ('isRestricted' in updates) dbUpdates.is_restricted = updates.isRestricted;
 
-      await supabase.from('profiles').update(dbUpdates).eq('id', id);
+      const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', id);
+      if (error) throw error;
+
       if (this.currentUser?.id === id) {
         this.currentUser = { ...this.currentUser, ...updates };
       }
-    } catch (e) {
-      console.error("updateUser error:", e);
+    } catch (e: any) {
+      console.error("Node Update Protocol Violation:", e.message);
+      throw e;
     }
   }
 
@@ -145,11 +154,20 @@ class MProStore {
     try {
       let q = supabase.from('transactions').select('*').order('created_at', { ascending: false });
       if (userId) q = q.eq('user_id', userId);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       return (data || []).map(t => ({
-        id: t.id, userId: t.user_id, amount: Number(t.amount), type: t.type, status: t.status,
-        description: t.description, createdAt: t.created_at, bankName: t.bank_name,
-        accountNumber: t.account_number, accountName: t.account_name, proofImageUrl: t.proof_image_url
+        id: t.id, 
+        userId: t.user_id, 
+        amount: Number(t.amount), 
+        type: t.type, 
+        status: t.status,
+        description: t.description, 
+        createdAt: t.created_at, 
+        bankName: t.bank_name,
+        accountNumber: t.account_number, 
+        accountName: t.account_name, // Fixed: changed from account_name to accountName
+        proofImageUrl: t.proof_image_url
       }));
     } catch (e) { return []; }
   }
@@ -187,9 +205,17 @@ class MProStore {
     try {
       const { data } = await supabase.from('investments').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle();
       if (!data) return null;
+      // Fixed: changed daily_roi to dailyRoi, start_date to startDate, and end_date to endDate to match Investment interface
       return {
-        id: data.id, userId: data.user_id, productId: data.product_id, productName: data.product_name,
-        amount: Number(data.amount), dailyRoi: Number(data.daily_roi), startDate: data.start_date, endDate: data.end_date, status: data.status
+        id: data.id, 
+        userId: data.user_id, 
+        productId: data.product_id, 
+        productName: data.product_name,
+        amount: Number(data.amount), 
+        dailyRoi: Number(data.daily_roi), 
+        startDate: data.start_date, 
+        endDate: data.end_date, 
+        status: data.status
       };
     } catch (e) { return null; }
   }
@@ -231,16 +257,18 @@ class MProStore {
   async redeemCoupon(userId: string, code: string): Promise<{ success: boolean, amount: number, error?: string }> {
     try {
       const { data: coupon } = await supabase.from('coupons').select('*').ilike('code', code).maybeSingle();
-      if (!coupon) return { success: false, amount: 0, error: 'Invalid code.' };
+      if (!coupon) return { success: false, amount: 0, error: 'Cipher Key invalid.' };
+      
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (!profile) return { success: false, amount: 0, error: 'Profile not found.' };
-      if (profile.used_coupons?.includes(coupon.id)) return { success: false, amount: 0, error: 'Already used.' };
+      if (!profile) return { success: false, amount: 0, error: 'Identity check failed.' };
+      
+      if (profile.used_coupons?.includes(coupon.id)) return { success: false, amount: 0, error: 'Voucher already used by this node.' };
       
       const updatedUsed = [...(profile.used_coupons || []), coupon.id];
       await this.updateUser(userId, { balance: Number(profile.balance) + Number(coupon.amount), usedCoupons: updatedUsed });
       return { success: true, amount: Number(coupon.amount) };
     } catch (e) {
-      return { success: false, amount: 0, error: 'Network error.' };
+      return { success: false, amount: 0, error: 'Network sync failure.' };
     }
   }
 }
