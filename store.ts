@@ -28,19 +28,27 @@ class MProStore {
   }
 
   async fetchCurrentUser(email: string): Promise<User | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (error || !data) return null;
-    return data as User;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (error || !data) return null;
+      return data as User;
+    } catch (e) {
+      return null;
+    }
   }
 
   async getUsers(): Promise<User[]> {
-    const { data, error } = await supabase.from('profiles').select('*').order('createdAt', { ascending: false });
-    return (data as User[]) || [];
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').order('createdAt', { ascending: false });
+      return (data as User[]) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   generateReferralCode() {
@@ -48,16 +56,20 @@ class MProStore {
   }
 
   async getReferralCount(referralCode: string): Promise<number> {
-    const { count, error } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('referredBy', referralCode);
+    try {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('referredBy', referralCode);
 
-    return count || 0;
+      return count || 0;
+    } catch (e) {
+      return 0;
+    }
   }
 
   async addUser(user: User) {
-    const { error } = await supabase.from('profiles').insert([user]);
+    await supabase.from('profiles').insert([user]);
     
     if (user.referredBy) {
       const { data: referrer } = await supabase
@@ -84,7 +96,7 @@ class MProStore {
   }
 
   async updateUser(id: string, updates: Partial<User>) {
-    const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+    await supabase.from('profiles').update(updates).eq('id', id);
     if (this.currentUser?.id === id) {
       this.currentUser = { ...this.currentUser, ...updates };
     }
@@ -92,8 +104,12 @@ class MProStore {
 
   // Coupons
   async getCoupons(): Promise<Coupon[]> {
-    const { data } = await supabase.from('coupons').select('*');
-    return (data as Coupon[]) || [];
+    try {
+      const { data } = await supabase.from('coupons').select('*');
+      return (data as Coupon[]) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   async addCoupon(coupon: Coupon) {
@@ -105,35 +121,43 @@ class MProStore {
   }
 
   async redeemCoupon(userId: string, code: string): Promise<{ success: boolean, amount: number, error?: string }> {
-    const { data: coupon } = await supabase
-      .from('coupons')
-      .select('*')
-      .ilike('code', code)
-      .maybeSingle();
+    try {
+      const { data: coupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .ilike('code', code)
+        .maybeSingle();
 
-    if (!coupon) return { success: false, amount: 0, error: 'Invalid coupon code.' };
+      if (!coupon) return { success: false, amount: 0, error: 'Invalid coupon code.' };
 
-    const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-    if (!user) return { success: false, amount: 0, error: 'User not found.' };
+      const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (!user) return { success: false, amount: 0, error: 'User not found.' };
 
-    if (user.usedCoupons?.includes(coupon.id)) {
-      return { success: false, amount: 0, error: 'You have already used this coupon.' };
+      if (user.usedCoupons?.includes(coupon.id)) {
+        return { success: false, amount: 0, error: 'You have already used this coupon.' };
+      }
+
+      const updatedUsedCoupons = [...(user.usedCoupons || []), coupon.id];
+      await this.updateUser(userId, { 
+        balance: user.balance + coupon.amount,
+        usedCoupons: updatedUsedCoupons
+      });
+
+      return { success: true, amount: coupon.amount };
+    } catch (e) {
+      return { success: false, amount: 0, error: 'System error redeeming coupon.' };
     }
-
-    const updatedUsedCoupons = [...(user.usedCoupons || []), coupon.id];
-    await this.updateUser(userId, { 
-      balance: user.balance + coupon.amount,
-      usedCoupons: updatedUsedCoupons
-    });
-
-    return { success: true, amount: coupon.amount };
   }
 
   // Products
   async getProducts(): Promise<Product[]> {
-    const { data } = await supabase.from('products').select('*');
-    if (!data || data.length === 0) return INITIAL_PRODUCTS;
-    return data as Product[];
+    try {
+      const { data } = await supabase.from('products').select('*');
+      if (!data || data.length === 0) return INITIAL_PRODUCTS;
+      return data as Product[];
+    } catch (e) {
+      return INITIAL_PRODUCTS;
+    }
   }
 
   async updateProduct(id: string, updates: Partial<Product>) {
@@ -146,18 +170,26 @@ class MProStore {
 
   // Investments
   async getInvestments(): Promise<Investment[]> {
-    const { data } = await supabase.from('investments').select('*');
-    return (data as Investment[]) || [];
+    try {
+      const { data } = await supabase.from('investments').select('*');
+      return (data as Investment[]) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   async getActiveInvestment(userId: string): Promise<Investment | null> {
-    const { data } = await supabase
-      .from('investments')
-      .select('*')
-      .eq('userId', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-    return (data as Investment) || null;
+    try {
+      const { data } = await supabase
+        .from('investments')
+        .select('*')
+        .eq('userId', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      return (data as Investment) || null;
+    } catch (e) {
+      return null;
+    }
   }
 
   async addInvestment(inv: Investment) {
@@ -166,10 +198,14 @@ class MProStore {
 
   // Transactions
   async getTransactions(userId?: string): Promise<Transaction[]> {
-    let query = supabase.from('transactions').select('*').order('createdAt', { ascending: false });
-    if (userId) query = query.eq('userId', userId);
-    const { data } = await query;
-    return (data as Transaction[]) || [];
+    try {
+      let query = supabase.from('transactions').select('*').order('createdAt', { ascending: false });
+      if (userId) query = query.eq('userId', userId);
+      const { data } = await query;
+      return (data as Transaction[]) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   async addTransaction(t: Transaction) {
@@ -182,8 +218,12 @@ class MProStore {
 
   // Messages
   async getMessages(userId: string): Promise<ChatMessage[]> {
-    const { data } = await supabase.from('chat_messages').select('*').eq('userId', userId).order('timestamp', { ascending: true });
-    return (data as ChatMessage[]) || [];
+    try {
+      const { data } = await supabase.from('chat_messages').select('*').eq('userId', userId).order('timestamp', { ascending: true });
+      return (data as ChatMessage[]) || [];
+    } catch (e) {
+      return [];
+    }
   }
 
   async addMessage(msg: ChatMessage) {
@@ -196,9 +236,13 @@ class MProStore {
 
   // Settings
   async getSettings(): Promise<GlobalSettings> {
-    const { data } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
-    if (!data) return INITIAL_SETTINGS;
-    return data.data as GlobalSettings;
+    try {
+      const { data, error } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
+      if (error || !data) return INITIAL_SETTINGS;
+      return data.data as GlobalSettings;
+    } catch (e) {
+      return INITIAL_SETTINGS;
+    }
   }
 
   async updateSettings(s: Partial<GlobalSettings>) {

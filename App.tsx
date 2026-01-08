@@ -16,21 +16,31 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
-      // Fetch settings from Supabase or use initials
-      const globalSettings = await store.getSettings();
-      setSettings(globalSettings);
+      try {
+        // Fetch settings from Supabase or use initials
+        const globalSettings = await store.getSettings();
+        setSettings(globalSettings);
 
-      // Check current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        const profile = await store.fetchCurrentUser(session.user.email);
-        if (profile) {
-          setCurrentUser(profile);
-          store.setCurrentUser(profile);
-          setView(profile.role === UserRole.ADMIN ? 'admin' : 'dashboard');
+        // Check current session with a timeout safety
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
+        
+        const { data: { session } }: any = await Promise.race([sessionPromise, timeoutPromise]);
+        
+        if (session?.user?.email) {
+          const profile = await store.fetchCurrentUser(session.user.email);
+          if (profile) {
+            setCurrentUser(profile);
+            store.setCurrentUser(profile);
+            setView(profile.role === UserRole.ADMIN ? 'admin' : 'dashboard');
+          }
         }
+      } catch (err) {
+        console.error("Initialization Error:", err);
+        // On error, we just proceed with default settings and welcome view
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     init();
   }, []);
