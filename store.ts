@@ -39,7 +39,7 @@ class MProStore {
   }
 
   async getUsers(): Promise<User[]> {
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('profiles').select('*').order('createdAt', { ascending: false });
     return (data as User[]) || [];
   }
 
@@ -51,7 +51,7 @@ class MProStore {
     const { count, error } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('referred_by', referralCode);
+      .eq('referredBy', referralCode);
 
     return count || 0;
   }
@@ -63,7 +63,7 @@ class MProStore {
       const { data: referrer } = await supabase
         .from('profiles')
         .select('*')
-        .eq('referral_code', user.referredBy)
+        .eq('referralCode', user.referredBy)
         .maybeSingle();
 
       if (referrer) {
@@ -116,11 +116,11 @@ class MProStore {
     const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (!user) return { success: false, amount: 0, error: 'User not found.' };
 
-    if (user.used_coupons?.includes(coupon.id)) {
+    if (user.usedCoupons?.includes(coupon.id)) {
       return { success: false, amount: 0, error: 'You have already used this coupon.' };
     }
 
-    const updatedUsedCoupons = [...(user.used_coupons || []), coupon.id];
+    const updatedUsedCoupons = [...(user.usedCoupons || []), coupon.id];
     await this.updateUser(userId, { 
       balance: user.balance + coupon.amount,
       usedCoupons: updatedUsedCoupons
@@ -166,7 +166,7 @@ class MProStore {
 
   // Transactions
   async getTransactions(userId?: string): Promise<Transaction[]> {
-    let query = supabase.from('transactions').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('transactions').select('*').order('createdAt', { ascending: false });
     if (userId) query = query.eq('userId', userId);
     const { data } = await query;
     return (data as Transaction[]) || [];
