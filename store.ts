@@ -84,8 +84,9 @@ class MProStore {
         referred_by: user.referredBy,
         created_at: user.createdAt
       };
+      // USE UPSERT TO PREVENT ERROR IF PROFILE ALREADY EXISTS
       const { error } = await supabase.from('profiles').upsert([dbUser]);
-      if (error) console.error("Database Insert Error:", error);
+      if (error) console.error("Database Save Error:", error);
     } catch (e) {
       console.error("addUser error:", e);
     }
