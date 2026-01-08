@@ -1,15 +1,22 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User, Product, Investment, Transaction, ChatMessage, GlobalSettings, UserRole, TransactionType, TransactionStatus, Coupon } from './types';
 import { INITIAL_PRODUCTS, INITIAL_SETTINGS } from './constants';
 
-const supabaseUrl = (process.env as any).SUPABASE_URL || '';
-const supabaseAnonKey = (process.env as any).SUPABASE_ANON_KEY || '';
+// Supabase Credentials provided by user - Hardcoded for seamless Vercel deployment
+const supabaseUrl = 'https://plcwsfobfywzlkkokeza.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsY3dzZm9iZnl3emxra29rZXphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NDA5MTAsImV4cCI6MjA4MzQxNjkxMH0.5oqn3ELXnrvvAJSEZ1Ja772DBG3ZPdzJznBZ08dL5ec';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase Client
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 class MProStore {
   private currentUser: User | null = null;
+
+  // Configuration check helper
+  isConfigured(): boolean {
+    return !!supabaseUrl && !!supabaseAnonKey;
+  }
 
   // Auth
   setCurrentUser(user: User | null) {
@@ -25,7 +32,7 @@ class MProStore {
       .from('profiles')
       .select('*')
       .eq('email', email)
-      .single();
+      .maybeSingle();
     
     if (error || !data) return null;
     return data as User;
@@ -45,6 +52,7 @@ class MProStore {
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('referred_by', referralCode);
+
     return count || 0;
   }
 
@@ -56,7 +64,7 @@ class MProStore {
         .from('profiles')
         .select('*')
         .eq('referral_code', user.referredBy)
-        .single();
+        .maybeSingle();
 
       if (referrer) {
         const settings = await this.getSettings();
@@ -101,11 +109,11 @@ class MProStore {
       .from('coupons')
       .select('*')
       .ilike('code', code)
-      .single();
+      .maybeSingle();
 
     if (!coupon) return { success: false, amount: 0, error: 'Invalid coupon code.' };
 
-    const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    const { data: user } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (!user) return { success: false, amount: 0, error: 'User not found.' };
 
     if (user.used_coupons?.includes(coupon.id)) {
@@ -196,7 +204,7 @@ class MProStore {
   async updateSettings(s: Partial<GlobalSettings>) {
     const current = await this.getSettings();
     const updated = { ...current, ...s };
-    const { error } = await supabase.from('settings').upsert({ id: 'global', data: updated });
+    await supabase.from('settings').upsert({ id: 'global', data: updated });
   }
 }
 

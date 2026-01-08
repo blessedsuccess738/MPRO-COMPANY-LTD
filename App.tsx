@@ -16,9 +16,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // Fetch settings from Supabase or use initials
       const globalSettings = await store.getSettings();
       setSettings(globalSettings);
 
+      // Check current session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email) {
         const profile = await store.fetchCurrentUser(session.user.email);
@@ -42,16 +44,18 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070b14] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center space-y-6">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-xl"></div>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Initializing Protocol</p>
       </div>
     );
   }
 
+  // Maintenance mode (Admin can always access)
   if (settings.isGlobalMaintenance && currentUser?.role !== UserRole.ADMIN) {
     return (
       <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center text-5xl animate-pulse border border-amber-500/20">
+        <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center text-5xl animate-pulse border border-amber-500/20 shadow-2xl">
           ⚙️
         </div>
         <div className="space-y-2">
@@ -61,7 +65,7 @@ const App: React.FC = () => {
           </p>
         </div>
         <div className="pt-8 border-t border-white/5 w-48">
-          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Protocol 4.2.0-MAIN</p>
+          <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Protocol 4.2.0-MAIN</p>
         </div>
       </div>
     );
@@ -72,7 +76,7 @@ const App: React.FC = () => {
       case 'welcome':
         return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
       case 'auth':
-        return <Auth onBack={() => setView('welcome')} onAuthSuccess={(u) => { setCurrentUser(u); }} />;
+        return <Auth onBack={() => setView('welcome')} onAuthSuccess={(u) => { setCurrentUser(u); setView(u.role === UserRole.ADMIN ? 'admin' : 'dashboard'); }} />;
       case 'dashboard':
         return currentUser ? <Dashboard user={currentUser} onLogout={handleLogout} /> : null;
       case 'admin':
@@ -83,7 +87,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen selection:bg-indigo-500 selection:text-white">
       {renderView()}
     </div>
   );
