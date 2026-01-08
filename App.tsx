@@ -13,46 +13,83 @@ const App: React.FC = () => {
   const [view, setView] = useState<'welcome' | 'auth' | 'dashboard' | 'admin'>('welcome');
   const [settings, setSettings] = useState<GlobalSettings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verficationSuccess, setVerificationSuccess] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
     const init = async () => {
-      // MASTER SAFETY TIMEOUT: Force show UI after 2.5 seconds regardless of DB state
+      // 1. Detect if we are returning from an email verification link
+      // Supabase appends #access_token or similar to the URL
+      const hash = window.location.hash;
+      if (hash && (hash.includes('access_token') || hash.includes('type=signup'))) {
+        setIsVerifying(true);
+      }
+
       const safetyTimer = setTimeout(() => {
-        if (isMounted) setLoading(false);
-      }, 2500);
+        if (isMounted) {
+          setLoading(false);
+          setIsVerifying(false);
+        }
+      }, 3500);
 
       try {
-        // Run session check and settings fetch in parallel with a timeout
-        const results = await Promise.race([
-          Promise.all([
-            store.getSettings(),
-            supabase.auth.getSession()
-          ]),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 2000))
-        ]) as [GlobalSettings, any];
+        const [globalSettings, { data: { session } }] = await Promise.all([
+          store.getSettings(),
+          supabase.auth.getSession()
+        ]);
 
         if (!isMounted) return;
-
-        const [globalSettings, sessionData] = results;
         setSettings(globalSettings);
 
-        const session = sessionData?.data?.session;
-        if (session?.user?.email) {
-          const profile = await store.fetchCurrentUser(session.user.email);
-          if (profile && isMounted) {
+        if (session?.user) {
+          let profile = await store.fetchCurrentUser(session.user.id);
+          
+          // Self-Healing: If user is authed but has no profile record (common after verification redirect)
+          if (!profile) {
+            console.log("Healing missing profile for verified user...");
+            const recoveredUser: User = {
+              id: session.user.id,
+              email: session.user.email!,
+              role: session.user.email === settings.adminEmail ? UserRole.ADMIN : UserRole.USER,
+              balance: 0,
+              isFrozen: false,
+              usedCoupons: [],
+              referralCode: store.generateReferralCode(),
+              createdAt: new Date().toISOString()
+            };
+            await store.addUser(recoveredUser);
+            profile = recoveredUser;
+          }
+
+          if (profile) {
             setCurrentUser(profile);
             store.setCurrentUser(profile);
-            setView(profile.role === UserRole.ADMIN ? 'admin' : 'dashboard');
+            
+            if (isVerifying) {
+              setVerificationSuccess(true);
+              setTimeout(() => {
+                if (isMounted) {
+                  setView(profile!.role === UserRole.ADMIN ? 'admin' : 'dashboard');
+                  setIsVerifying(false);
+                  setVerificationSuccess(false);
+                }
+              }, 3000);
+            } else {
+              setView(profile.role === UserRole.ADMIN ? 'admin' : 'dashboard');
+            }
           }
+        } else if (isVerifying) {
+          // If hash exists but no session, verification might have failed or expired
+          setIsVerifying(false);
         }
       } catch (err) {
-        console.warn("Init Warning (falling back to local):", err);
+        console.warn("Init Error:", err);
       } finally {
         if (isMounted) {
           clearTimeout(safetyTimer);
-          setLoading(false);
+          if (!isVerifying) setLoading(false);
         }
       }
     };
@@ -70,16 +107,30 @@ const App: React.FC = () => {
     setView('welcome');
   };
 
-  if (loading) {
+  if (loading || isVerifying) {
     return (
-      <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center space-y-6">
-        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-xl"></div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Initializing Protocol</p>
+      <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center space-y-8 p-6 text-center">
+        {verficationSuccess ? (
+          <div className="animate-in zoom-in duration-500 space-y-6">
+            <div className="w-24 h-24 bg-green-500/20 border border-green-500/30 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto shadow-2xl shadow-green-500/10">✅</div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Node Verified</h1>
+              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">Protocol access granted. Redirecting...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin shadow-xl"></div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Initializing Protocol</p>
+              {isVerifying && <p className="text-[9px] text-indigo-400 font-bold uppercase animate-pulse">Synchronizing Secure Identity...</p>}
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
-  // Global Maintenance Mode
   if (settings.isGlobalMaintenance && currentUser?.role !== UserRole.ADMIN) {
     return (
       <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-8 text-center space-y-6">
@@ -102,11 +153,7 @@ const App: React.FC = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen w-full">
-      {renderView()}
-    </div>
-  );
+  return <div className="min-h-screen w-full">{renderView()}</div>;
 };
 
 export default App;

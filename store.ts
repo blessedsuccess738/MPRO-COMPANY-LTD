@@ -6,7 +6,6 @@ import { INITIAL_PRODUCTS, INITIAL_SETTINGS } from './constants';
 const supabaseUrl = 'https://plcwsfobfywzlkkokeza.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsY3dzZm9iZnl3emxra29rZXphIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NDA5MTAsImV4cCI6MjA4MzQxNjkxMH0.5oqn3ELXnrvvAJSEZ1Ja772DBG3ZPdzJznBZ08dL5ec';
 
-// Safety check for initialization
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 class MProStore {
@@ -15,7 +14,6 @@ class MProStore {
   setCurrentUser(user: User | null) { this.currentUser = user; }
   getCurrentUser() { return this.currentUser; }
 
-  // Helper to map DB profile to User object
   private mapProfile(data: any): User {
     if (!data) return {} as User;
     return {
@@ -33,25 +31,34 @@ class MProStore {
     };
   }
 
-  async fetchCurrentUser(email: string): Promise<User | null> {
+  async fetchCurrentUser(identifier: string): Promise<User | null> {
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
-      if (error || !data) return null;
+      // If identifier contains '@', it's an email, otherwise assume UUID
+      const column = identifier.includes('@') ? 'email' : 'id';
+      const query = supabase.from('profiles').select('*');
+      
+      if (column === 'email') {
+        query.ilike('email', identifier.trim());
+      } else {
+        query.eq('id', identifier);
+      }
+
+      const { data, error } = await query.maybeSingle();
+      if (error || !data) {
+        if (error) console.error("Store Fetch Error:", error);
+        return null;
+      }
       return this.mapProfile(data);
     } catch (e) { 
-      console.error("fetchCurrentUser error:", e);
       return null; 
     }
   }
 
   async getUsers(): Promise<User[]> {
     try {
-      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
+      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       return (data || []).map(this.mapProfile);
-    } catch (e) { 
-      return []; 
-    }
+    } catch (e) { return []; }
   }
 
   generateReferralCode() { 
@@ -60,19 +67,16 @@ class MProStore {
 
   async getReferralCount(referralCode: string): Promise<number> {
     try {
-      const { count, error } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', referralCode);
-      if (error) throw error;
+      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by', referralCode);
       return count || 0;
-    } catch (e) { 
-      return 0; 
-    }
+    } catch (e) { return 0; }
   }
 
   async addUser(user: User) {
     try {
       const dbUser = {
         id: user.id,
-        email: user.email,
+        email: user.email.toLowerCase().trim(),
         role: user.role,
         balance: user.balance,
         is_frozen: user.isFrozen,
@@ -80,7 +84,8 @@ class MProStore {
         referred_by: user.referredBy,
         created_at: user.createdAt
       };
-      await supabase.from('profiles').insert([dbUser]);
+      const { error } = await supabase.from('profiles').upsert([dbUser]);
+      if (error) console.error("Database Insert Error:", error);
     } catch (e) {
       console.error("addUser error:", e);
     }
@@ -108,9 +113,7 @@ class MProStore {
     try {
       const { data } = await supabase.from('coupons').select('*');
       return (data || []).map(c => ({ id: c.id, code: c.code, amount: c.amount, createdAt: c.created_at }));
-    } catch (e) {
-      return [];
-    }
+    } catch (e) { return []; }
   }
 
   async addCoupon(coupon: Coupon) {
@@ -124,27 +127,15 @@ class MProStore {
       const { data, error } = await supabase.from('products').select('*');
       if (error || !data || data.length === 0) return INITIAL_PRODUCTS;
       return data.map(p => ({ 
-        id: p.id, 
-        name: p.name, 
-        price: Number(p.price), 
-        dailyRoi: Number(p.daily_roi), 
-        duration: Number(p.duration), 
-        imageUrl: p.image_url 
+        id: p.id, name: p.name, price: Number(p.price), dailyRoi: Number(p.daily_roi), duration: Number(p.duration), imageUrl: p.image_url 
       }));
-    } catch (e) { 
-      return INITIAL_PRODUCTS; 
-    }
+    } catch (e) { return INITIAL_PRODUCTS; }
   }
 
   async addProduct(p: Product) {
     try {
       await supabase.from('products').insert([{
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        daily_roi: p.dailyRoi,
-        duration: p.duration,
-        image_url: p.imageUrl
+        id: p.id, name: p.name, price: p.price, daily_roi: p.dailyRoi, duration: p.duration, image_url: p.imageUrl
       }]);
     } catch (e) {}
   }
@@ -153,16 +144,13 @@ class MProStore {
     try {
       let q = supabase.from('transactions').select('*').order('created_at', { ascending: false });
       if (userId) q = q.eq('user_id', userId);
-      const { data, error } = await q;
-      if (error) throw error;
+      const { data } = await q;
       return (data || []).map(t => ({
         id: t.id, userId: t.user_id, amount: Number(t.amount), type: t.type, status: t.status,
         description: t.description, createdAt: t.created_at, bankName: t.bank_name,
         accountNumber: t.account_number, accountName: t.account_name, proofImageUrl: t.proof_image_url
       }));
-    } catch (e) { 
-      return []; 
-    }
+    } catch (e) { return []; }
   }
 
   async addTransaction(t: Transaction) {
@@ -183,12 +171,9 @@ class MProStore {
 
   async getSettings(): Promise<GlobalSettings> {
     try {
-      const { data, error } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
-      if (error || !data) return INITIAL_SETTINGS;
-      return (data.data as GlobalSettings) || INITIAL_SETTINGS;
-    } catch (e) { 
-      return INITIAL_SETTINGS; 
-    }
+      const { data } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
+      return data ? (data.data as GlobalSettings) : INITIAL_SETTINGS;
+    } catch (e) { return INITIAL_SETTINGS; }
   }
 
   async updateSettings(s: GlobalSettings) {
@@ -199,8 +184,8 @@ class MProStore {
 
   async getActiveInvestment(userId: string): Promise<Investment | null> {
     try {
-      const { data, error } = await supabase.from('investments').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle();
-      if (error || !data) return null;
+      const { data } = await supabase.from('investments').select('*').eq('user_id', userId).eq('status', 'active').maybeSingle();
+      if (!data) return null;
       return {
         id: data.id, userId: data.user_id, productId: data.product_id, productName: data.product_name,
         amount: Number(data.amount), dailyRoi: Number(data.daily_roi), startDate: data.start_date, endDate: data.end_date, status: data.status
