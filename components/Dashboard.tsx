@@ -70,7 +70,6 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       if (data && data.account_name) {
         setVerifiedName(data.account_name);
       } else {
-        // Handle specific Nubapi error response if exists, otherwise default
         setVerifyError(data.message || 'Invalid account details. Please check the number and bank.');
       }
     } catch (err: any) {
@@ -179,6 +178,11 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   const handleWithdrawClick = () => {
     if (settings.isWithdrawalMaintenance) {
       setError('Withdrawal is currently in maintenance mode. Please try again later.');
+      setTimeout(() => setError(''), 4000);
+      return;
+    }
+    if (user.isRestricted) {
+      setError('Your withdrawal capability has been restricted. Please contact support.');
       setTimeout(() => setError(''), 4000);
       return;
     }
@@ -291,6 +295,12 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
 
       <main className="flex-1 pb-32 overflow-y-auto no-scrollbar relative z-10">
         <div className="max-w-2xl mx-auto p-6 space-y-6">
+          {user.warningMessage && (
+            <div className="p-4 bg-amber-500/10 text-amber-500 rounded-2xl text-xs font-bold border border-amber-500/20 animate-pulse">
+              <span className="block text-[10px] uppercase opacity-60 mb-1 tracking-widest">Admin Notice</span>
+              {user.warningMessage}
+            </div>
+          )}
           {success && <div className="p-4 bg-green-500/10 text-green-400 rounded-2xl text-xs font-bold border border-green-500/20 animate-in fade-in slide-in-from-top-2">{success}</div>}
           {error && <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl text-xs font-bold border border-red-500/20 animate-in fade-in slide-in-from-top-2">{error}</div>}
 

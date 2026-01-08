@@ -25,6 +25,8 @@ export interface User {
   role: UserRole;
   balance: number;
   isFrozen: boolean;
+  isRestricted?: boolean; // New: restriction for withdrawals
+  warningMessage?: string; // New: admin message/warning
   createdAt: string;
 }
 
