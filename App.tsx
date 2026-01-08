@@ -9,46 +9,62 @@ import Auth from './components/Auth';
 import { INITIAL_SETTINGS } from './constants';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(store.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [view, setView] = useState<'welcome' | 'auth' | 'dashboard' | 'admin'>('welcome');
   const [settings, setSettings] = useState<GlobalSettings>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
-      // MASTER SAFETY TIMEOUT: If nothing happens in 3 seconds, show the UI anyway.
+      // MASTER SAFETY TIMEOUT: Force show UI after 2.5 seconds regardless of DB state
       const safetyTimer = setTimeout(() => {
-        setLoading(false);
-      }, 3000);
+        if (isMounted) setLoading(false);
+      }, 2500);
 
       try {
-        // 1. Get Settings
-        const globalSettings = await store.getSettings();
+        // Run session check and settings fetch in parallel with a timeout
+        const results = await Promise.race([
+          Promise.all([
+            store.getSettings(),
+            supabase.auth.getSession()
+          ]),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 2000))
+        ]) as [GlobalSettings, any];
+
+        if (!isMounted) return;
+
+        const [globalSettings, sessionData] = results;
         setSettings(globalSettings);
 
-        // 2. Check Session
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const session = sessionData?.data?.session;
         if (session?.user?.email) {
           const profile = await store.fetchCurrentUser(session.user.email);
-          if (profile) {
+          if (profile && isMounted) {
             setCurrentUser(profile);
             store.setCurrentUser(profile);
             setView(profile.role === UserRole.ADMIN ? 'admin' : 'dashboard');
           }
         }
       } catch (err) {
-        console.error("Init Error:", err);
+        console.warn("Init Warning (falling back to local):", err);
       } finally {
-        clearTimeout(safetyTimer);
-        setLoading(false);
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
       }
     };
+
     init();
+    return () => { isMounted = false; };
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
     store.setCurrentUser(null);
     setCurrentUser(null);
     setView('welcome');
@@ -63,6 +79,7 @@ const App: React.FC = () => {
     );
   }
 
+  // Global Maintenance Mode
   if (settings.isGlobalMaintenance && currentUser?.role !== UserRole.ADMIN) {
     return (
       <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-8 text-center space-y-6">
@@ -79,13 +96,17 @@ const App: React.FC = () => {
     switch (view) {
       case 'welcome': return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
       case 'auth': return <Auth onBack={() => setView('welcome')} onAuthSuccess={(u) => { setCurrentUser(u); setView(u.role === UserRole.ADMIN ? 'admin' : 'dashboard'); }} />;
-      case 'dashboard': return currentUser ? <Dashboard user={currentUser} onLogout={handleLogout} /> : null;
-      case 'admin': return currentUser?.role === UserRole.ADMIN ? <AdminPanel user={currentUser} onLogout={handleLogout} /> : null;
+      case 'dashboard': return currentUser ? <Dashboard user={currentUser} onLogout={handleLogout} /> : <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
+      case 'admin': return currentUser?.role === UserRole.ADMIN ? <AdminPanel user={currentUser} onLogout={handleLogout} /> : <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
       default: return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
     }
   };
 
-  return <div className="min-h-screen">{renderView()}</div>;
+  return (
+    <div className="min-h-screen w-full">
+      {renderView()}
+    </div>
+  );
 };
 
 export default App;
