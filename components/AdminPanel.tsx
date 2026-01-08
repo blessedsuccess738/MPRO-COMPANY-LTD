@@ -24,6 +24,7 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
   const [warningText, setWarningText] = useState('');
   const [couponAmount, setCouponAmount] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [viewProofUrl, setViewProofUrl] = useState<string | null>(null);
 
   // Product Form State
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
@@ -180,6 +181,36 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
                </div>
             )}
 
+            {activeTab === 'deposits' && (
+              <div className="bg-white/5 rounded-[2.5rem] border border-white/10 backdrop-blur-md overflow-hidden">
+                <div className="p-8 border-b border-white/5"><h3 className="font-black uppercase tracking-widest text-sm text-white">Manual Inflow Registry</h3></div>
+                <table className="w-full text-left text-sm">
+                   <thead className="bg-white/[0.02] text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
+                      <tr><th className="p-8">Participant</th><th className="p-8">Quantity</th><th className="p-8">Proof</th><th className="p-8">Audit</th></tr>
+                   </thead>
+                   <tbody className="divide-y divide-white/5">
+                      {transactions.filter(t => t.type === TransactionType.MANUAL_DEPOSIT && t.status === TransactionStatus.PENDING).map(t => (
+                         <tr key={t.id}>
+                            <td className="p-8 text-white font-medium">{users.find(u => u.id === t.userId)?.email}</td>
+                            <td className="p-8 font-black text-white">{CURRENCY}{t.amount.toLocaleString()}</td>
+                            <td className="p-8">
+                               {t.proofImageUrl ? (
+                                  <button onClick={() => setViewProofUrl(t.proofImageUrl!)} className="text-[10px] font-black uppercase tracking-widest text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded-lg hover:bg-indigo-500/10 transition-all">View Proof</button>
+                               ) : (
+                                  <span className="text-slate-600 text-[10px] font-black uppercase tracking-widest">No Proof Attached</span>
+                               )}
+                            </td>
+                            <td className="p-8 flex gap-6">
+                               <button onClick={() => handleManualDeposit(t.id, true)} className="text-green-400 font-black uppercase text-[10px] tracking-widest">Confirm</button>
+                               <button onClick={() => handleManualDeposit(t.id, false)} className="text-red-400 font-black uppercase text-[10px] tracking-widest">Reject</button>
+                            </td>
+                         </tr>
+                      ))}
+                   </tbody>
+                </table>
+              </div>
+            )}
+
             {activeTab === 'products' && (
               <div className="space-y-8">
                 <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-8 space-y-6 backdrop-blur-md">
@@ -221,7 +252,7 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
                           <span className="text-indigo-400 font-black text-xs">{p.dailyRoi}% ROI</span>
                         </div>
                         <p className="text-sm font-bold text-indigo-200">{CURRENCY}{p.price.toLocaleString()} • {p.duration} Days</p>
-                        <button onClick={() => { /* Store needs a delete product method or just update products list */ }} className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/10">Remove Asset</button>
+                        <button onClick={() => { /* Store needs a delete product method */ }} className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-500/10">Remove Asset</button>
                       </div>
                     </div>
                   ))}
@@ -296,30 +327,6 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
                </div>
             )}
 
-            {activeTab === 'deposits' && (
-              <div className="bg-white/5 rounded-[2.5rem] border border-white/10 backdrop-blur-md overflow-hidden">
-                <div className="p-8 border-b border-white/5"><h3 className="font-black uppercase tracking-widest text-sm text-white">Manual Inflow Registry</h3></div>
-                <table className="w-full text-left text-sm">
-                   <thead className="bg-white/[0.02] text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">
-                      <tr><th className="p-8">Participant</th><th className="p-8">Quantity</th><th className="p-8">Sync Date</th><th className="p-8">Audit</th></tr>
-                   </thead>
-                   <tbody className="divide-y divide-white/5">
-                      {transactions.filter(t => t.type === TransactionType.MANUAL_DEPOSIT && t.status === TransactionStatus.PENDING).map(t => (
-                         <tr key={t.id}>
-                            <td className="p-8 text-white font-medium">{users.find(u => u.id === t.userId)?.email}</td>
-                            <td className="p-8 font-black text-white">{CURRENCY}{t.amount.toLocaleString()}</td>
-                            <td className="p-8 text-slate-500 font-bold uppercase text-[10px]">{new Date(t.createdAt).toLocaleDateString()}</td>
-                            <td className="p-8 flex gap-6">
-                               <button onClick={() => handleManualDeposit(t.id, true)} className="text-green-400 font-black uppercase text-[10px] tracking-widest">Confirm</button>
-                               <button onClick={() => handleManualDeposit(t.id, false)} className="text-red-400 font-black uppercase text-[10px] tracking-widest">Reject</button>
-                            </td>
-                         </tr>
-                      ))}
-                   </tbody>
-                </table>
-              </div>
-            )}
-
             {activeTab === 'settings' && (
                <div className="bg-white/5 rounded-[2.5rem] border border-white/10 p-10 space-y-12 backdrop-blur-md">
                   <div className="flex justify-between items-center border-b border-white/5 pb-8">
@@ -331,7 +338,23 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                     <div className="space-y-6">
-                      <h4 className="text-md font-black uppercase text-indigo-500 tracking-widest italic">Visual Protocol</h4>
+                      <h4 className="text-md font-black uppercase text-indigo-500 tracking-widest italic">Manual Collection Node</h4>
+                      <div className="space-y-6 p-8 bg-white/[0.02] rounded-3xl border border-white/5">
+                        <div className="space-y-2">
+                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Bank Name</label>
+                           <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none" value={settings.manualBankName} onChange={(e) => updateSetting('manualBankName', e.target.value)} />
+                        </div>
+                        <div className="space-y-2 pt-6 border-t border-white/5">
+                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Number</label>
+                           <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none" value={settings.manualAccountNumber} onChange={(e) => updateSetting('manualAccountNumber', e.target.value)} />
+                        </div>
+                        <div className="space-y-2 pt-6 border-t border-white/5">
+                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Name</label>
+                           <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white outline-none" value={settings.manualAccountName} onChange={(e) => updateSetting('manualAccountName', e.target.value)} />
+                        </div>
+                      </div>
+
+                      <h4 className="text-md font-black uppercase text-indigo-500 tracking-widest italic mt-12">Visual Protocol</h4>
                       <div className="space-y-6 p-8 bg-white/[0.02] rounded-3xl border border-white/5">
                         <div className="space-y-2">
                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Landing (Welcome) Backdrop</label>
@@ -420,6 +443,16 @@ const AdminPanel: React.FC<Props> = ({ user, onLogout }) => {
                  </div>
               </div>
            </div>
+         )}
+
+         {/* View Proof Modal */}
+         {viewProofUrl && (
+            <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-6" onClick={() => setViewProofUrl(null)}>
+               <div className="max-w-4xl w-full h-full flex flex-col items-center justify-center p-12">
+                  <img src={viewProofUrl} alt="Transaction Proof" className="max-w-full max-h-full object-contain rounded-2xl shadow-3xl border border-white/10" />
+                  <button onClick={() => setViewProofUrl(null)} className="mt-8 px-12 py-4 bg-white/10 text-white font-black uppercase tracking-widest rounded-2xl">Close Asset Node</button>
+               </div>
+            </div>
          )}
       </main>
     </div>

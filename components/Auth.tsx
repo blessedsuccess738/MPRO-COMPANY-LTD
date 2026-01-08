@@ -110,12 +110,12 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
               <input type="email" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" placeholder="user@mpro.invest" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Security Key</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Password</label>
               <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {mode === 'signup' && (
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Verify Key</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confirm Password</label>
                 <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
               </div>
             )}

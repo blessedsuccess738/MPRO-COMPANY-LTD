@@ -70,6 +70,7 @@ export interface Transaction {
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
+  proofImageUrl?: string; // For manual deposit screenshots
 }
 
 export interface ChatMessage {
@@ -90,6 +91,10 @@ export interface GlobalSettings {
   adminEmail: string;
   telegramAdminLink: string;
   telegramChannelLink: string;
+  // Manual Deposit Node
+  manualBankName: string;
+  manualAccountNumber: string;
+  manualAccountName: string;
   // Visuals
   userPanelBackgroundUrl: string;
   isUserPanelVideo: boolean;

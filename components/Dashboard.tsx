@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Product, Investment, Transaction, TransactionType, TransactionStatus } from '../types';
 import { store } from '../store';
 import { CURRENCY, NIGERIAN_BANKS, APP_NAME, PAYSTACK_PUBLIC_KEY } from '../constants';
@@ -26,7 +26,9 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   const [paystackModal, setPaystackModal] = useState<Product | null>(null);
   const [depositModal, setDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositStep, setDepositStep] = useState<'amount' | 'method'>('amount');
+  const [depositStep, setDepositStep] = useState<'amount' | 'method' | 'manual_details' | 'proof'>('amount');
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [couponCode, setCouponCode] = useState('');
   
   const [withdrawModal, setWithdrawModal] = useState(false);
@@ -102,12 +104,22 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProofImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleDeposit = (method: 'automatic' | 'manual') => {
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     if (method === 'automatic') {
-      // Trigger Paystack Inline
       if (typeof PaystackPop === 'undefined') {
         setError('Payment gateway currently unavailable. Try manual transfer.');
         return;
@@ -116,10 +128,9 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       const handler = PaystackPop.setup({
         key: PAYSTACK_PUBLIC_KEY,
         email: user.email,
-        amount: amount * 100, // Paystack works in kobo
+        amount: amount * 100, 
         currency: "NGN",
         callback: (response: any) => {
-          // Verify payment reference and update balance
           store.updateUser(user.id, { balance: user.balance + amount });
           store.addTransaction({
             id: 'paystack-' + response.reference,
@@ -142,10 +153,30 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       });
       handler.openIframe();
     } else {
-      store.addTransaction({ id: 'mdep-' + Date.now(), userId: user.id, amount, type: TransactionType.MANUAL_DEPOSIT, status: TransactionStatus.PENDING, description: 'Manual Dep', createdAt: new Date().toISOString() });
-      setSuccess('Requested!');
-      setDepositModal(false); setDepositAmount(''); setDepositStep('amount');
+      setDepositStep('manual_details');
     }
+  };
+
+  const finalizeManualDeposit = () => {
+    const amount = parseFloat(depositAmount);
+    if (!proofImage) { setError('Payment proof required.'); return; }
+    
+    store.addTransaction({ 
+      id: 'mdep-' + Date.now(), 
+      userId: user.id, 
+      amount, 
+      type: TransactionType.MANUAL_DEPOSIT, 
+      status: TransactionStatus.PENDING, 
+      description: 'Manual Node Inflow', 
+      proofImageUrl: proofImage,
+      createdAt: new Date().toISOString() 
+    });
+    
+    setSuccess('Inflow node pending approval.');
+    setDepositModal(false); 
+    setDepositAmount(''); 
+    setDepositStep('amount');
+    setProofImage(null);
     setTimeout(() => setSuccess(''), 3000);
   };
 
@@ -219,7 +250,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Portfolio Balance</p>
                <h2 className="text-5xl font-black tracking-tighter">{CURRENCY}{user.balance.toLocaleString()}</h2>
                <div className="flex gap-4 mt-8">
-                  <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="flex-1 py-3.5 bg-white/10 rounded-xl font-bold text-xs uppercase hover:bg-white/20 transition-all">Add Capital</button>
+                  <button onClick={() => { setDepositModal(true); setDepositStep('amount'); }} className="flex-1 py-3.5 bg-white/10 rounded-xl font-bold text-xs uppercase hover:bg-white/20 transition-all">Add Deposit</button>
                   <button onClick={handleWithdrawClick} className="flex-1 py-3.5 bg-white/10 rounded-xl font-bold text-xs uppercase hover:bg-white/20 transition-all">Withdraw</button>
                </div>
              </div>
@@ -302,12 +333,13 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
         ))}
       </nav>
 
-      {/* Modals */}
+      {/* Deposit Modal */}
       {depositModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 shadow-3xl">
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Deposit Capital</h3>
-              {depositStep === 'amount' ? (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300 overflow-y-auto no-scrollbar">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 shadow-3xl my-auto">
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Add Deposit</h3>
+              
+              {depositStep === 'amount' && (
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Amount to Fund</label>
@@ -316,7 +348,9 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                   <button onClick={() => setDepositStep('method')} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-widest shadow-xl">Select Protocol</button>
                   <button onClick={() => setDepositModal(false)} className="w-full text-slate-500 text-[10px] font-black uppercase">Cancel</button>
                 </div>
-              ) : (
+              )}
+
+              {depositStep === 'method' && (
                 <div className="space-y-4">
                   <button onClick={() => handleDeposit('automatic')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl text-left flex justify-between items-center group hover:bg-indigo-600/20 transition-all">
                      <div className="space-y-1">
@@ -328,20 +362,68 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                   <button onClick={() => handleDeposit('manual')} className="w-full p-6 bg-white/5 border border-white/10 rounded-2xl text-left flex justify-between items-center group hover:bg-indigo-600/20 transition-all">
                      <div className="space-y-1">
                         <p className="text-white font-black uppercase text-xs">Manual Transfer</p>
-                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">1-2 Hour Review</p>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Audit Required</p>
                      </div>
                      <span className="text-indigo-500 group-hover:translate-x-1 transition-transform">→</span>
                   </button>
                   <button onClick={() => setDepositStep('amount')} className="w-full text-slate-500 text-[10px] font-black uppercase">Back</button>
                 </div>
               )}
+
+              {depositStep === 'manual_details' && (
+                <div className="space-y-6">
+                  <div className="p-6 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl space-y-4">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-center">Collection Node Details</p>
+                    <div className="space-y-3">
+                      <div><p className="text-[9px] text-slate-500 font-black uppercase">Bank</p><p className="text-white font-black text-sm">{settings.manualBankName}</p></div>
+                      <div><p className="text-[9px] text-slate-500 font-black uppercase">Account Number</p><p className="text-white font-black text-lg tracking-widest">{settings.manualAccountNumber}</p></div>
+                      <div><p className="text-[9px] text-slate-500 font-black uppercase">Account Name</p><p className="text-white font-black text-sm">{settings.manualAccountName}</p></div>
+                    </div>
+                    <button onClick={() => { navigator.clipboard.writeText(settings.manualAccountNumber); setSuccess('Copied!'); setTimeout(() => setSuccess(''), 2000); }} className="w-full py-2 bg-indigo-600/20 text-indigo-400 text-[9px] font-black uppercase rounded-lg border border-indigo-500/10">Copy Account Number</button>
+                  </div>
+                  <div className="bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
+                    <p className="text-[9px] text-amber-500 font-bold leading-relaxed text-center uppercase">Transfer exactly <span className="text-white">{CURRENCY}{parseFloat(depositAmount).toLocaleString()}</span> and capture a screenshot of the success screen.</p>
+                  </div>
+                  <button onClick={() => setDepositStep('proof')} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-widest">I have made payment</button>
+                  <button onClick={() => setDepositStep('method')} className="w-full text-slate-500 text-[10px] font-black uppercase">Back</button>
+                </div>
+              )}
+
+              {depositStep === 'proof' && (
+                 <div className="space-y-6">
+                    <div className="text-center space-y-2">
+                       <p className="text-indigo-400 font-black uppercase text-xs">Upload Evidence</p>
+                       <p className="text-[10px] text-slate-500 uppercase font-black">Proof of {CURRENCY}{parseFloat(depositAmount).toLocaleString()}</p>
+                    </div>
+                    
+                    <div 
+                       onClick={() => fileInputRef.current?.click()}
+                       className="w-full h-48 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.08] transition-all overflow-hidden"
+                    >
+                       {proofImage ? (
+                          <img src={proofImage} alt="Proof" className="w-full h-full object-cover" />
+                       ) : (
+                          <>
+                             <span className="text-4xl mb-2 opacity-20">📸</span>
+                             <p className="text-[10px] font-black text-slate-600 uppercase">Tap to choose screenshot</p>
+                          </>
+                       )}
+                    </div>
+                    
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+
+                    <button disabled={!proofImage} onClick={finalizeManualDeposit} className={`w-full py-5 font-black rounded-2xl uppercase text-xs tracking-widest transition-all ${proofImage ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'bg-slate-800 text-slate-600'}`}>Submit for Audit</button>
+                    <button onClick={() => setDepositStep('manual_details')} className="w-full text-slate-500 text-[10px] font-black uppercase">Back to bank info</button>
+                 </div>
+              )}
            </div>
         </div>
       )}
 
+      {/* Withdrawal Modal */}
       {withdrawModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300">
-           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-4 shadow-3xl">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300 overflow-y-auto no-scrollbar">
+           <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-4 shadow-3xl my-auto">
               <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Harvest Funds</h3>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Payout Quantity</label>
@@ -369,6 +451,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
         </div>
       )}
 
+      {/* Asset Acquisition Modal */}
       {paystackModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 animate-in fade-in duration-300">
            <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 text-center shadow-3xl">

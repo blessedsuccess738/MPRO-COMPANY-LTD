@@ -69,7 +69,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
            
            <form onSubmit={handleUpdate} className="space-y-4">
               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Current Protocol Key</label>
+                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Current Password</label>
                  <input 
                     type="password"
                     required
@@ -80,7 +80,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
                  />
               </div>
               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">New Protocol Key</label>
+                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">New Password</label>
                  <input 
                     type="password"
                     required
@@ -90,7 +90,7 @@ const ProfileSettings: React.FC<Props> = ({ user, onLogout }) => {
                     onChange={(e) => setNewPass(e.target.value)}
                  />
               </div>
-              <button type="submit" className="w-full py-4 bg-white/10 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-white/20 active:scale-95 transition-all border border-white/5">Update Access Keys</button>
+              <button type="submit" className="w-full py-4 bg-white/10 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] hover:bg-white/20 active:scale-95 transition-all border border-white/5">Update Password</button>
            </form>
         </div>
 
