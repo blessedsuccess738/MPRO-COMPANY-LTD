@@ -29,9 +29,10 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
   const [withdrawModal, setWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
-  const [selectedBank, setSelectedBank] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
   const [verifiedName, setVerifiedName] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -46,22 +47,48 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
     return () => clearInterval(timer);
   }, [user.id]);
 
-  const verifyAccount = () => {
-    if (accountNumber.length !== 10 || !selectedBank) return;
+  // Real-world NUBAN (Nubapi) Verification Logic
+  const verifyAccount = async () => {
+    if (accountNumber.length !== 10 || !selectedBankCode) return;
+    
     setIsVerifying(true);
-    setTimeout(() => {
-      setVerifiedName(user.email.split('@')[0].toUpperCase() + " USER");
+    setVerifyError('');
+    setVerifiedName('');
+
+    try {
+      const NUBAPI_KEY = 'POuzCSQj3qrGIdERDwENLwWppMp5pVtl8o5rXTebdf8dd0fe';
+      const response = await fetch(`https://nubapi.com/api/verify?account_number=${accountNumber}&bank_code=${selectedBankCode}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${NUBAPI_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data && data.account_name) {
+        setVerifiedName(data.account_name);
+      } else {
+        // Handle specific Nubapi error response if exists, otherwise default
+        setVerifyError(data.message || 'Invalid account details. Please check the number and bank.');
+      }
+    } catch (err: any) {
+      setVerifyError('Verification protocol timed out. Please try again.');
+      setVerifiedName('');
+    } finally {
       setIsVerifying(false);
-    }, 1500);
+    }
   };
 
   useEffect(() => {
-    if (accountNumber.length === 10 && selectedBank) {
+    if (accountNumber.length === 10 && selectedBankCode) {
       verifyAccount();
     } else {
       setVerifiedName('');
+      setVerifyError('');
     }
-  }, [accountNumber, selectedBank]);
+  }, [accountNumber, selectedBankCode]);
 
   const handleInvestment = (product: Product) => {
     if (activeInvestment) {
@@ -177,14 +204,16 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
       return;
     }
 
+    const bank = NIGERIAN_BANKS.find(b => b.code === selectedBankCode);
+
     store.addTransaction({
       id: 'wd-' + Date.now(),
       userId: user.id,
       amount: amount,
       type: TransactionType.WITHDRAWAL,
       status: TransactionStatus.PENDING,
-      description: `Withdrawal to ${selectedBank}`,
-      bankName: selectedBank,
+      description: `Withdrawal to ${bank?.name}`,
+      bankName: bank?.name,
       accountNumber: accountNumber,
       accountName: verifiedName,
       createdAt: new Date().toISOString()
@@ -490,7 +519,7 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
         </div>
       )}
 
-      {/* Withdrawal Modal */}
+      {/* Withdrawal Modal with Real NUBAN Verification */}
       {withdrawModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6 overflow-y-auto animate-in fade-in duration-300">
            <div className="bg-[#0f172a] border border-white/10 w-full max-w-sm rounded-3xl p-8 space-y-6 my-auto shadow-3xl">
@@ -502,19 +531,47 @@ const Dashboard: React.FC<Props> = ({ user: initialUser, onLogout }) => {
                  </div>
                  <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Destination Bank</label>
-                    <select className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-sm focus:ring-1 focus:ring-indigo-500 appearance-none" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)}>
-                       <option value="">Select Protocol Bank</option>
-                       {NIGERIAN_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
+                    <div className="relative">
+                      <select className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-sm focus:ring-1 focus:ring-indigo-500 appearance-none" value={selectedBankCode} onChange={(e) => setSelectedBankCode(e.target.value)}>
+                        <option value="">Select Protocol Bank</option>
+                        {NIGERIAN_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">▼</div>
+                    </div>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Identifier</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Account Number (NUBAN)</label>
                     <input type="text" maxLength={10} className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white font-bold outline-none text-lg tracking-[0.2em] focus:ring-1 focus:ring-indigo-500" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="10 Digits" />
                  </div>
-                 {isVerifying && <p className="text-[10px] text-indigo-400 font-black tracking-widest animate-pulse ml-1 uppercase">Syncing with Node...</p>}
-                 {verifiedName && <p className="text-[10px] text-green-400 font-black uppercase bg-green-500/10 p-3 rounded-xl border border-green-500/20 tracking-widest animate-in fade-in">{verifiedName}</p>}
                  
-                 <button onClick={handleWithdraw} className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-indigo-500 transition-colors">Confirm Withdrawal</button>
+                 {/* Verification States */}
+                 {isVerifying && (
+                   <div className="flex items-center gap-3 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl animate-pulse">
+                      <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-[10px] text-indigo-400 font-black tracking-widest uppercase">Consulting Banking Nodes...</p>
+                   </div>
+                 )}
+                 
+                 {verifyError && (
+                   <p className="text-[10px] text-red-500 font-black uppercase bg-red-500/10 p-3 rounded-xl border border-red-500/20 tracking-widest">
+                     ⚠️ {verifyError}
+                   </p>
+                 )}
+
+                 {verifiedName && (
+                   <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl space-y-1 animate-in fade-in slide-in-from-top-1">
+                      <p className="text-[8px] font-black text-green-600 uppercase tracking-widest">Verified Account Name</p>
+                      <p className="text-xs text-green-400 font-black uppercase tracking-tight">{verifiedName}</p>
+                   </div>
+                 )}
+                 
+                 <button 
+                  disabled={!verifiedName || isVerifying}
+                  onClick={handleWithdraw} 
+                  className={`w-full py-5 font-black rounded-2xl uppercase text-xs tracking-[0.2em] shadow-xl transition-all ${verifiedName && !isVerifying ? 'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                 >
+                   Confirm Withdrawal
+                 </button>
                  <button onClick={() => setWithdrawModal(false)} className="w-full text-slate-500 text-[10px] font-black uppercase tracking-widest">Cancel</button>
               </div>
            </div>
