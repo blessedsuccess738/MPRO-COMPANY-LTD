@@ -25,51 +25,30 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
 
     try {
       if (mode === 'login') {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
 
         const profile = await store.fetchCurrentUser(email);
         if (profile) {
           if (profile.isFrozen) {
-            setError('Account frozen. Contact support.');
+            setError('Account frozen.');
             await supabase.auth.signOut();
             return;
           }
           store.setCurrentUser(profile);
           onAuthSuccess(profile);
         } else {
-          setError('Profile not found.');
+          setError('Profile missing.');
         }
       } else {
-        if (password !== confirmPassword) {
-          setError('Passwords mismatch');
-          setLoading(false);
-          return;
-        }
+        if (password !== confirmPassword) { setError('Passwords mismatch'); setLoading(false); return; }
 
-        // Referral validation if provided
         if (referralCode) {
-          const { data: refUser } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('referral_code', referralCode.toUpperCase())
-            .maybeSingle();
-          if (!refUser) {
-            setError('Invalid referral code');
-            setLoading(false);
-            return;
-          }
+          const { data: refUser } = await supabase.from('profiles').select('id').eq('referral_code', referralCode.toUpperCase()).maybeSingle();
+          if (!refUser) { setError('Invalid referral code'); setLoading(false); return; }
         }
 
-        const { data, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
+        const { data, error: authError } = await supabase.auth.signUp({ email, password });
         if (authError) throw authError;
 
         if (data.user) {
@@ -98,10 +77,6 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
 
   return (
     <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className={`absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] animate-pulse ${mode === 'login' ? 'bg-indigo-600/20' : 'bg-blue-600/20'}`}></div>
-      </div>
-
       <div className="max-w-md w-full relative z-10 space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 rounded-[2rem] shadow-2xl">
@@ -109,27 +84,26 @@ const Auth: React.FC<Props> = ({ onBack, onAuthSuccess }) => {
           </div>
           <h2 className="text-4xl font-black text-white tracking-tighter uppercase">{mode === 'login' ? 'Login' : 'Sign up'}</h2>
         </div>
-
         <div className="bg-white/5 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl">
           <form onSubmit={handleAuth} className="space-y-6">
             {error && <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl text-[10px] font-black uppercase text-center border border-red-500/20">{error}</div>}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Protocol Email</label>
-              <input type="email" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" placeholder="user@mpro.invest" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input type="email" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold" placeholder="user@mpro.invest" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Password</label>
-              <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {mode === 'signup' && (
               <>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confirm Password</label>
-                  <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                  <input type="password" required className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Referral Code (Optional)</label>
-                  <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none transition-all text-white font-bold uppercase" placeholder="MPRO-XYZ" value={referralCode} onChange={(e) => setReferralCode(e.target.value)} />
+                  <input type="text" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl outline-none text-white font-bold uppercase" placeholder="MPRO-XYZ" value={referralCode} onChange={(e) => setReferralCode(e.target.value)} />
                 </div>
               </>
             )}

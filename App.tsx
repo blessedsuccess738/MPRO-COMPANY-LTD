@@ -16,16 +16,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // MASTER SAFETY TIMEOUT: If nothing happens in 3 seconds, show the UI anyway.
+      const safetyTimer = setTimeout(() => {
+        setLoading(false);
+      }, 3000);
+
       try {
-        // Fetch settings from Supabase or use initials
+        // 1. Get Settings
         const globalSettings = await store.getSettings();
         setSettings(globalSettings);
 
-        // Check current session with a timeout safety
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
-        
-        const { data: { session } }: any = await Promise.race([sessionPromise, timeoutPromise]);
+        // 2. Check Session
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user?.email) {
           const profile = await store.fetchCurrentUser(session.user.email);
@@ -36,9 +38,9 @@ const App: React.FC = () => {
           }
         }
       } catch (err) {
-        console.error("Initialization Error:", err);
-        // On error, we just proceed with default settings and welcome view
+        console.error("Init Error:", err);
       } finally {
+        clearTimeout(safetyTimer);
         setLoading(false);
       }
     };
@@ -61,21 +63,13 @@ const App: React.FC = () => {
     );
   }
 
-  // Maintenance mode (Admin can always access)
   if (settings.isGlobalMaintenance && currentUser?.role !== UserRole.ADMIN) {
     return (
       <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center text-5xl animate-pulse border border-amber-500/20 shadow-2xl">
-          ⚙️
-        </div>
+        <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center text-5xl animate-pulse border border-amber-500/20 shadow-2xl">⚙️</div>
         <div className="space-y-2">
           <h1 className="text-3xl font-black text-white uppercase tracking-tighter">System Calibration</h1>
-          <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
-            The MPRO protocol is currently undergoing a structural update. Please return later.
-          </p>
-        </div>
-        <div className="pt-8 border-t border-white/5 w-48">
-          <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Protocol 4.2.0-MAIN</p>
+          <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">The MPRO protocol is currently undergoing a structural update.</p>
         </div>
       </div>
     );
@@ -83,24 +77,15 @@ const App: React.FC = () => {
 
   const renderView = () => {
     switch (view) {
-      case 'welcome':
-        return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
-      case 'auth':
-        return <Auth onBack={() => setView('welcome')} onAuthSuccess={(u) => { setCurrentUser(u); setView(u.role === UserRole.ADMIN ? 'admin' : 'dashboard'); }} />;
-      case 'dashboard':
-        return currentUser ? <Dashboard user={currentUser} onLogout={handleLogout} /> : null;
-      case 'admin':
-        return currentUser?.role === UserRole.ADMIN ? <AdminPanel user={currentUser} onLogout={handleLogout} /> : null;
-      default:
-        return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
+      case 'welcome': return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
+      case 'auth': return <Auth onBack={() => setView('welcome')} onAuthSuccess={(u) => { setCurrentUser(u); setView(u.role === UserRole.ADMIN ? 'admin' : 'dashboard'); }} />;
+      case 'dashboard': return currentUser ? <Dashboard user={currentUser} onLogout={handleLogout} /> : null;
+      case 'admin': return currentUser?.role === UserRole.ADMIN ? <AdminPanel user={currentUser} onLogout={handleLogout} /> : null;
+      default: return <WelcomeScreen onLogin={() => setView('auth')} onSignUp={() => setView('auth')} />;
     }
   };
 
-  return (
-    <div className="min-h-screen selection:bg-indigo-500 selection:text-white">
-      {renderView()}
-    </div>
-  );
+  return <div className="min-h-screen">{renderView()}</div>;
 };
 
 export default App;
